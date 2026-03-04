@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GSTR-2A Purchase Report Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<style>
+:root{--navy:#1F3864;--blue:#2E75B6;--lblue:#D6E4F0;--orange:#C55A11;--lorange:#FCE4D6;
+  --green:#375623;--lgreen:#E2EFDA;--dn:#1F4E79;--ldnote:#D6E4F0;--cn:#7B2C2C;--lcnote:#FCECEA;
+  --bg:#F0F4FA;--white:#fff;--text:#1a2a44;--muted:#6b7fa3;--border:#C5D5E8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--navy);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:64px;border-bottom:3px solid var(--blue)}
+header h1{font-size:16px;font-weight:700;color:#fff;letter-spacing:.04em;text-transform:uppercase}
+header span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7BAFD4;letter-spacing:.08em}
+main{max-width:1200px;margin:0 auto;padding:32px 20px 60px}
+.upload-zone{background:var(--white);border:2px dashed var(--border);border-radius:12px;padding:36px;text-align:center;position:relative;cursor:pointer;transition:.2s}
+.upload-zone.dragover{border-color:var(--blue);background:var(--lblue)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone .icon{font-size:42px;margin-bottom:10px}
+.upload-zone h2{font-size:17px;font-weight:600;color:var(--navy)}
+.upload-zone p{font-size:13px;color:var(--muted);margin-top:4px}
+.hint{display:inline-block;margin-top:12px;background:var(--lblue);color:var(--navy);padding:4px 14px;border-radius:20px;font-size:11px;font-weight:500}
+#file-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{background:var(--navy);color:#fff;border-radius:6px;padding:5px 12px 5px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:7px}
+.chip .badge{background:var(--blue);border-radius:3px;padding:1px 6px;font-size:10px}
+.chip .badge.dcn{background:var(--orange)}
+.chip .rm{cursor:pointer;color:#aac4e0;margin-left:3px}.chip .rm:hover{color:#ff8080}
+.btn{margin-top:22px;display:block;width:100%;background:var(--navy);color:#fff;border:none;border-radius:8px;padding:15px 0;font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:.2s;font-family:inherit}
+.btn:hover:not(:disabled){background:var(--blue)}
+.btn:disabled{background:#a0aec0;cursor:not-allowed}
+#status{margin-top:14px;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:500;display:none}
+#status.info{background:var(--lblue);color:var(--navy);display:block}
+#status.success{background:var(--lgreen);color:var(--green);display:block}
+#status.error{background:var(--lorange);color:var(--orange);display:block}
+.sec-title{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 12px;padding-bottom:5px;border-bottom:2px solid var(--border)}
+.totals-bar{background:var(--navy);border-radius:10px;padding:18px 24px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin-bottom:22px}
+.t-item .tl{font-size:10px;color:#7BAFD4;text-transform:uppercase;letter-spacing:.06em}
+.t-item .tv{font-size:14px;font-weight:700;color:#fff;font-family:'IBM Plex Mono',monospace}
+.month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.month-card{background:var(--white);border-radius:10px;overflow:hidden;box-shadow:0 3px 16px rgba(31,56,100,.09)}
+.card-hdr{padding:12px 16px;font-size:13px;font-weight:700;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.card-hdr .late-flag{background:rgba(255,255,255,.2);border-radius:4px;padding:2px 8px;font-size:11px}
+.card-body{padding:0}
+.row-block{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;font-size:11px}
+.row-block .rb-label{padding:6px 10px;font-weight:600;font-size:10px;display:flex;align-items:center;grid-column:1/5;border-bottom:1px solid rgba(0,0,0,.06)}
+.row-block .rb-val{padding:5px 10px;border-bottom:1px solid rgba(0,0,0,.05);text-align:right}
+.row-block .rb-key{padding:5px 10px;border-bottom:1px solid rgba(0,0,0,.05);color:var(--muted);font-size:10px}
+.row-purchase .rb-label{background:#EEF4FA;color:var(--navy)}
+.row-dn .rb-label{background:#EEF2FA;color:var(--dn)}
+.row-cn .rb-label{background:#FBF0F0;color:var(--cn)}
+.row-net .rb-label{background:#EFF7EE;color:var(--green);font-weight:800}
+.row-net .rb-val{font-weight:700;color:var(--green)}
+.late-box{background:var(--lorange);padding:8px 12px;font-size:11px;color:var(--orange)}
+.late-box strong{display:block;margin-bottom:3px}
+</style>
+</head>
+<body>
+<header>
+  <h1>⊞ GSTR-2A Purchase Report Generator</h1>
+  <span>INWARD SUPPLIES · WITH DCN ADJUSTMENT · RATE-WISE BREAKDOWN</span>
+</header>
+<main>
+  <div class="upload-zone" id="dz">
+    <input type="file" id="fi" multiple accept=".csv"/>
+    <div class="icon">📂</div>
+    <h2>Drop GSTR-2A CSV files here</h2>
+    <p>Upload Invoice CSVs and/or Debit-Credit Note CSVs from the GST portal</p>
+    <span class="hint">Auto-detects month · Composite key deduplication · Full styled Excel output</span>
+  </div>
+  <div id="file-list"></div>
+  <button class="btn" id="gen-btn" disabled onclick="generate()">⬇ Generate Full Styled Excel Report</button>
+  <div id="status"></div>
+  <div id="preview" style="display:none">
+    <div class="sec-title">Grand Totals — FY Summary</div>
+    <div class="totals-bar" id="totals-bar"></div>
+    <div class="sec-title">Month-wise Breakdown</div>
+    <div class="month-grid" id="month-grid"></div>
+  </div>
+</main>
+<script>
+const VALID_RATES=new Set([0,5,12,18,28,40]);
+const MN=["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+let invFiles=[], dcnFiles=[];
+
+// ─── FY helper ───────────────────────────────────────────────────────────────
+function getFY(y,m){ return m>=4 ? `FY ${y}-${String(y+1).slice(-2)}` : `FY ${y-1}-${String(y).slice(-2)}`; }
+
+// ─── Drag & Drop ──────────────────────────────────────────────────────────────
+const dz=document.getElementById('dz');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');handleFiles(e.dataTransfer.files)});
+document.getElementById('fi').addEventListener('change',e=>handleFiles(e.target.files));
+
+function handleFiles(files){
+  Array.from(files).forEach(file=>{
+    if(!file.name.endsWith('.csv'))return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const isDCN=e.target.result.includes('Debit/Credit notes');
+      if(isDCN) processDCNFile(file, e.target.result);
+      else processInvFile(file, e.target.result);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function detectMonth(rows,col){
+  const mc={};
+  rows.forEach(r=>{
+    const d=(r[col]||'').trim();
+    const m=d.match(/^(\d{1,2})-(\d{2})-(\d{4})$/);
+    if(m){const k=`${m[3]}-${m[2].padStart(2,'0')}`;mc[k]=(mc[k]||0)+1;}
+  });
+  if(!Object.keys(mc).length)return null;
+  return Object.entries(mc).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+function processInvFile(file, text){
+  const rows=parseCSV(text);
+  if(!rows.length)return;
+  const ym=detectMonth(rows,'Invoice Date');
+  if(!ym)return;
+  const[y,m]=ym.split('-').map(Number);
+  invFiles=invFiles.filter(f=>!(f.y===y&&f.m===m));
+  invFiles.push({file,label:`${MN[m]}-${y}`,y,m,rows,type:'inv'});
+  invFiles.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m);
+  renderChips();
+}
+
+function processDCNFile(file, text){
+  const rows=parseCSV(text);
+  if(!rows.length)return;
+  const ym=detectMonth(rows,'Note date');
+  if(!ym)return;
+  const[y,m]=ym.split('-').map(Number);
+  dcnFiles=dcnFiles.filter(f=>!(f.y===y&&f.m===m));
+  dcnFiles.push({file,label:`${MN[m]}-${y}`,y,m,rows,type:'dcn'});
+  dcnFiles.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m);
+  renderChips();
+}
+
+function parseCSV(text){
+  const lines=text.replace(/\r/g,'').split('\n');
+  const hi=lines.findIndex(l=>l.includes('GSTIN of supplier'));
+  if(hi<0)return[];
+  const hdrs=parseLine(lines[hi]);
+  const rows=[];
+  for(let i=hi+1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const vals=parseLine(lines[i]);
+    if(vals.length<hdrs.length-3)continue;
+    const row={};
+    hdrs.forEach((h,idx)=>row[h.trim()]=(vals[idx]||'').trim());
+    if(row['GSTIN of supplier'])rows.push(row);
+  }
+  return rows;
+}
+
+function parseLine(line){
+  const res=[];let cur='';let inQ=false;
+  for(const ch of line){
+    if(ch==='"')inQ=!inQ;
+    else if(ch===','&&!inQ){res.push(cur);cur='';}
+    else cur+=ch;
+  }
+  res.push(cur);
+  return res.map(s=>s.replace(/^"|"$/g,'').trim());
+}
+
+function parseDate(s){
+  const m=(s||'').trim().match(/^(\d{1,2})-(\d{2})-(\d{4})$/);
+  return m?{d:+m[1],m:+m[2],y:+m[3]}:null;
+}
+
+function cn(v){
+  const s=String(v||'').trim().replace(/,/g,'');
+  if(['-','','null','undefined'].includes(s))return 0;
+  const n=parseFloat(s);return isNaN(n)?0:n;
+}
+
+function renderChips(){
+  const all=[...invFiles.map(f=>({...f,isDCN:false})),...dcnFiles.map(f=>({...f,isDCN:true}))];
+  all.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m!==b.m?a.m-b.m:a.isDCN?1:-1);
+  document.getElementById('file-list').innerHTML=all.map((f,i)=>`
+    <div class="chip">
+      <span class="badge ${f.isDCN?'dcn':''}">${f.label}</span>
+      <span>${f.file.name.length>30?f.file.name.slice(0,28)+'…':f.file.name}</span>
+      <span class="rm" onclick="removeFile(${i},${f.isDCN},'${f.label}')">✕</span>
+    </div>`).join('');
+  document.getElementById('gen-btn').disabled=(invFiles.length+dcnFiles.length)===0;
+}
+
+function removeFile(i,isDCN,label){
+  const[y,m]=label.split('-').map((v,idx)=>idx===0?MN.indexOf(v):+v);
+  if(isDCN) dcnFiles=dcnFiles.filter(f=>!(f.y===m&&f.m===y));
+  else invFiles=invFiles.filter(f=>!(f.label===label));
+  renderChips();
+}
+
+// ─── Process invoice month ────────────────────────────────────────────────────
+function processInvMonth(entry){
+  const{rows,y,m}=entry; const fm=[y,m];
+  const iK=new Set(),tK=new Set();
+  const inv=[],tax=[],late=[];
+  rows.forEach(row=>{
+    const gstin=row['GSTIN of supplier']||'';
+    const invNo=row['Invoice number']||'';
+    const date=(row['Invoice Date']||'').trim();
+    const iv=cn(row['Invoice Value (₹)']);
+    const ik=`${gstin}||${invNo}||${date}`;
+    if(!iK.has(ik)){
+      iK.add(ik);
+      const dt=parseDate(date);
+      const isLate=dt&&(dt.y!==fm[0]||dt.m!==fm[1]);
+      const crossFY=dt&&getFY(dt.y,dt.m)!==getFY(fm[0],fm[1]);
+      const im=dt?[dt.y,dt.m]:null;
+      inv.push({gstin,invNo,type:row['Invoice type']||'',date,pos:row['Place of supply']||'',iv,isLate,im,crossFY:crossFY||false});
+      if(isLate)late.push({gstin,invNo,date,im,iv,crossFY:crossFY||false});
+    }
+    const rs=(row['Rate (%)']||'').replace(/"/g,'').trim();
+    let rate=parseFloat(rs);if(isNaN(rate))return;rate=Number.isInteger(rate)?rate:Math.round(rate);
+    if(!VALID_RATES.has(rate))return;
+    const tk=`${gstin}||${invNo}||${date}||${rate}`;
+    if(!tK.has(tk)){
+      tK.add(tk);
+      tax.push({gstin,invNo,date,rate,
+        tv:cn(row['Taxable Value']),igst:cn(row['Integrated Tax']),
+        cgst:cn(row['Central Tax']),sgst:cn(row['State/UT tax']),cess:cn(row['Cess'])});
+    }
+  });
+  const S=(a,k)=>a.reduce((s,x)=>s+x[k],0);
+  const tv=S(tax,'tv'),ig=S(tax,'igst'),cg=S(tax,'cgst'),sg=S(tax,'sgst'),ce=S(tax,'cess'),tt=ig+cg+sg+ce;
+  return{label:entry.label,y,m,fm,totalInv:inv.length,invVal:S(inv,'iv'),
+         tv,igst:ig,cgst:cg,sgst:sg,cess:ce,totalTax:tt,gt:tv+tt,
+         late,inv:inv.sort((a,b)=>a.gstin.localeCompare(b.gstin)),
+         tax:tax.sort((a,b)=>a.gstin.localeCompare(b.gstin)||a.rate-b.rate)};
+}
+
+// ─── Process DCN month ────────────────────────────────────────────────────────
+function processDCNMonth(entry){
+  const{rows,y,m}=entry;
+  const nK=new Set(),tK=new Set();
+  const nd=[],td=[];
+  rows.forEach(row=>{
+    const gstin=row['GSTIN of supplier']||'';
+    const nn=row['Note number']||'';
+    const ndt=(row['Note date']||'').trim();
+    const nt=row['Note type']||'';
+    const nv=cn(row['Note Value (₹)']);
+    const key=`${gstin}||${nn}||${ndt}`;
+    if(!nK.has(key)){nK.add(key);nd.push({gstin,noteNo:nn,noteType:nt,noteDate:ndt,noteVal:nv});}
+    const rs=(row['Rate (%)']||'').replace(/"/g,'').trim();
+    let rate=parseFloat(rs);if(isNaN(rate))return;rate=Number.isInteger(rate)?rate:Math.round(rate);
+    if(!VALID_RATES.has(rate))return;
+    const tk=`${gstin}||${nn}||${ndt}||${rate}`;
+    if(!tK.has(tk)){
+      tK.add(tk);
+      td.push({gstin,noteNo:nn,noteType:nt,noteDate:ndt,rate,
+        tv:cn(row['Taxable Value']),igst:cn(row['Integrated Tax']),
+        cgst:cn(row['Central Tax']),sgst:cn(row['State/UT tax']),cess:cn(row['Cess'])});
+    }
+  });
+  const S=(a,k,t)=>a.filter(x=>t?x.noteType.includes(t):true).reduce((s,x)=>s+x[k],0);
+  const cnNv=S(nd,'noteVal','Credit'),dnNv=S(nd,'noteVal','Debit');
+  const cnTv=S(td,'tv','Credit'),dnTv=S(td,'tv','Debit');
+  const cnIg=S(td,'igst','Credit'),dnIg=S(td,'igst','Debit');
+  const cnCg=S(td,'cgst','Credit'),dnCg=S(td,'cgst','Debit');
+  const cnSg=S(td,'sgst','Credit'),dnSg=S(td,'sgst','Debit');
+  const cnCe=S(td,'cess','Credit'),dnCe=S(td,'cess','Debit');
+  const netTv=dnTv-cnTv,netIg=dnIg-cnIg,netCg=dnCg-cnCg,netSg=dnSg-cnSg,netCe=dnCe-cnCe;
+  const netTax=netIg+netCg+netSg+netCe;
+  return{y,m,cnNv,dnNv,netNv:dnNv-cnNv,cnTv,dnTv,netTv,cnIg,dnIg,netIg,
+         cnCg,dnCg,netCg,cnSg,dnSg,netSg,cnCe,dnCe,netCe,netTax,netGrand:netTv+netTax,
+         nd,td,cnCount:nd.filter(x=>x.noteType.includes('Credit')).length,
+         dnCount:nd.filter(x=>x.noteType.includes('Debit')).length};
+}
+
+// ─── Tax by rate ──────────────────────────────────────────────────────────────
+function taxByRate(taxList, dcnTd){
+  const rates=[...new Set([...taxList.map(d=>d.rate),...(dcnTd||[]).map(d=>d.rate)])].sort((a,b)=>a-b);
+  const out={};
+  rates.forEach(rate=>{
+    const inv=taxList.filter(d=>d.rate===rate);
+    const cn=(dcnTd||[]).filter(d=>d.rate===rate&&d.noteType.includes('Credit'));
+    const dn=(dcnTd||[]).filter(d=>d.rate===rate&&d.noteType.includes('Debit'));
+    const S=(a,k)=>a.reduce((s,x)=>s+x[k],0);
+    const invTv=S(inv,'tv'),invIg=S(inv,'igst'),invCg=S(inv,'cgst'),invSg=S(inv,'sgst'),invCe=S(inv,'cess');
+    const cnTv=S(cn,'tv'),cnIg=S(cn,'igst'),cnCg=S(cn,'cgst'),cnSg=S(cn,'sgst'),cnCe=S(cn,'cess');
+    const dnTv=S(dn,'tv'),dnIg=S(dn,'igst'),dnCg=S(dn,'cgst'),dnSg=S(dn,'sgst'),dnCe=S(dn,'cess');
+    const invTax=invIg+invCg+invSg+invCe;
+    const netTv=invTv+dnTv-cnTv,netIg=invIg+dnIg-cnIg,netCg=invCg+dnCg-cnCg,netSg=invSg+dnSg-cnSg,netCe=invCe+dnCe-cnCe;
+    const netTax=netIg+netCg+netSg+netCe;
+    out[rate]={rate,invTv,invIg,invCg,invSg,invCe,invTax,invGt:invTv+invTax,
+               cnTv,dnTv,netTv,netIg,netCg,netSg,netCe,netTax,netGt:netTv+netTax,
+               cnIg,cnCg,cnSg,cnCe,dnIg,dnCg,dnSg,dnCe};
+  });
+  return out;
+}
+
+function fmt(n){if(n===null||n===undefined||n===0)return'—';return n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtN(n){if(!n)return'—';return n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function renderPreview(results, dcnByMonth){
+  document.getElementById('preview').style.display='block';
+  const G={invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,totalTax:0,gt:0,netGt:0};
+  results.forEach(r=>{
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    G.invVal+=r.invVal; G.tv+=r.tv; G.igst+=r.igst; G.cgst+=r.cgst;
+    G.sgst+=r.sgst; G.cess+=r.cess; G.totalTax+=r.totalTax; G.gt+=r.gt;
+    G.netGt+=r.gt+(d?d.netGrand:0);
+  });
+  document.getElementById('totals-bar').innerHTML=[
+    ['Total Invoice Value',G.invVal],['Total Taxable Value',G.tv],['Total IGST',G.igst],
+    ['Total CGST',G.cgst],['Total SGST',G.sgst],['Total Tax',G.totalTax],
+    ['Gross Total',G.gt],['Net Purchase Total',G.netGt]
+  ].map(([l,v])=>`<div class="t-item"><div class="tl">${l}</div><div class="tv">₹${fmt(v)}</div></div>`).join('');
+
+  const CARD_COLORS=['#1F4E79','#375623','#7B2C2C','#4C3665','#7B6000','#1F3864','#006B3C','#5C3A1E','#1B4F72','#512E5F','#1A5276'];
+  document.getElementById('month-grid').innerHTML=results.map((r,ri)=>{
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    const dn_gt=(d?d.dnTv+d.dnIg+d.dnCg+d.dnSg+d.dnCe:0);
+    const cn_gt=(d?d.cnTv+d.cnIg+d.cnCg+d.cnSg+d.cnCe:0);
+    const netGt=r.gt+(d?d.netGrand:0);
+    const col=CARD_COLORS[ri%CARD_COLORS.length];
+    const rows=[
+      {cls:'row-purchase',label:'1  Total Purchases',inv:r.totalInv,iv:r.invVal,tv:r.tv,tax:r.totalTax,gt:r.gt},
+      {cls:'row-dn',label:'2  Add: Debit Notes',inv:d?d.dnCount:0,iv:d?d.dnNv:0,tv:d?d.dnTv:0,tax:d?d.dnIg+d.dnCg+d.dnSg+d.dnCe:0,gt:dn_gt},
+      {cls:'row-cn',label:'3  Less: Credit Notes',inv:d?d.cnCount:0,iv:d?d.cnNv:0,tv:d?d.cnTv:0,tax:d?d.cnIg+d.cnCg+d.cnSg+d.cnCe:0,gt:cn_gt},
+      {cls:'row-net',label:'4  Net Purchases',inv:r.totalInv,iv:r.invVal+(d?d.netNv:0),tv:r.tv+(d?d.netTv:0),tax:r.totalTax+(d?d.netTax:0),gt:netGt},
+    ];
+    const rowsHtml=rows.map(rw=>`
+      <div class="row-block ${rw.cls}">
+        <div class="rb-label" style="grid-column:1/6">${rw.label}</div>
+        <div class="rb-key">Inv.</div><div class="rb-val">${rw.inv||'—'}</div>
+        <div class="rb-key">Taxable</div><div class="rb-val">₹${fmt(rw.tv)}</div>
+        <div class="rb-key">Tax</div><div class="rb-val">₹${fmt(rw.tax)}</div>
+        <div class="rb-key">Total</div><div class="rb-val"><strong>₹${fmt(rw.gt)}</strong></div>
+      </div>`).join('');
+    const lateHtml=r.late.length?`<div class="late-box"><strong>⚠ ${r.late.length} Late Filed Invoice(s)</strong>${r.late.map(x=>`${x.invNo} → ${MN[x.im[1]]}-${x.im[0]}${x.crossFY?' ⚠ DIFF FY':''}`).join(' · ')}</div>`:'';
+    return`<div class="month-card">
+      <div class="card-hdr" style="background:${col}">${r.label}
+        ${r.late.length?`<span class="late-flag">⚠ ${r.late.length} late</span>`:''}
+      </div>
+      <div class="card-body">${rowsHtml}${lateHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function setStatus(t,m){const el=document.getElementById('status');el.className=t;el.textContent=m;}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXCEL BUILDER
+// ─────────────────────────────────────────────────────────────────────────────
+const PAL=[
+  {dark:'1F4E79',light:'D6E4F0',mid:'2E75B6'},{dark:'375623',light:'E2EFDA',mid:'548235'},
+  {dark:'7B2C2C',light:'FCE4D6',mid:'C0392B'},{dark:'4C3665',light:'EAE0F4',mid:'7B5EA7'},
+  {dark:'7B6000',light:'FFF2CC',mid:'BF8F00'},{dark:'1F3864',light:'D6E4F0',mid:'2E75B6'},
+  {dark:'006B3C',light:'D4EDDA',mid:'28A745'},{dark:'5C3A1E',light:'FDE8D0',mid:'A0522D'},
+  {dark:'1B4F72',light:'D6EAF8',mid:'2980B9'},{dark:'512E5F',light:'E8DAEF',mid:'8E44AD'},
+  {dark:'1A5276',light:'D6EAF8',mid:'2471A3'},
+];
+const OD='C55A11',OL='FCE4D6',GD='375623',GL='E2EFDA';
+const DND='1F4E79',DNL='D6E4F0',CND='7B2C2C',CNL='FCECEA';
+const DCND='2D6A4F',DCNL='D8F3DC';
+const NF='#,##0.00';
+
+function argb(h){return'FF'+h.toUpperCase();}
+const TB={top:{style:'thin',color:{argb:'FFB8CCE4'}},bottom:{style:'thin',color:{argb:'FFB8CCE4'}},left:{style:'thin',color:{argb:'FFB8CCE4'}},right:{style:'thin',color:{argb:'FFB8CCE4'}}};
+
+function st(cell,val,bg,fc='FFFFFF',bold=true,sz=10,h='center',wrap=false,ind=0,nf=null,it=false){
+  if(val!==undefined)cell.value=val;
+  if(bg)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(bg)}};
+  cell.font={name:'Calibri',size:sz,bold,italic:it,color:{argb:argb(fc)}};
+  cell.alignment={horizontal:h,vertical:'middle',wrapText:wrap,indent:ind};
+  cell.border=TB; if(nf)cell.numFmt=nf;
+}
+
+function bk(ws,r,c,bg){const cell=ws.getCell(r,c);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(bg)}};cell.border=TB;}
+
+function sHdr(ws,row,text,nc,bg,ht=20){
+  ws.mergeCells(row,1,row,nc);
+  st(ws.getCell(row,1),text,bg,'FFFFFF',true,10,'left',false,1);
+  for(let c=2;c<=nc;c++)ws.getCell(row,c).border=TB;
+  ws.getRow(row).height=ht;
+}
+
+function colW(ws,widths){widths.forEach((w,i)=>{ws.getColumn(i+1).width=w;});}
+
+// horizontal 4-row block writer
+// cols: [label_col, ...value_cols]
+// rows: [{label,lbg,vbg,vfc,bold,...vals}]
+function write4Rows(ws,startRow,rows,colOffset,numCols,labelWidth){
+  rows.forEach((rw,sub)=>{
+    const rr=startRow+sub; ws.getRow(rr).height=rw.ht||20;
+    const lc=ws.getCell(rr,colOffset);
+    st(lc,rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+    rw.vals.forEach((v,i)=>{
+      const c=ws.getCell(rr,colOffset+1+i);
+      c.value=(v!==null&&v!==undefined&&v!==0)?v:(rw.bold&&v===0?0:null);
+      if(rw.vbg)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+      c.font={name:'Calibri',size:rw.sz||10,bold:rw.bold||false,color:{argb:argb(rw.vfc||'1F3864')}};
+      c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+      if(typeof v==='number'&&v!==0)c.numFmt=NF;
+    });
+  });
+}
+
+async function buildExcel(results, dcnByMonth){
+  const wb=new ExcelJS.Workbook();
+  wb.creator='GSTR-2A Tool'; wb.created=new Date();
+
+  // ─────────────────────────────────────────────────────────
+  // SHEET 1: Annual Summary
+  // ─────────────────────────────────────────────────────────
+  const ws=wb.addWorksheet('Annual Summary');
+  // cols: [month label, row label, inv count, inv val, taxable, igst, cgst, sgst, cess, total tax, grand total]
+  colW(ws,[22,28,8,20,20,14,14,18,12,18,22]);
+  const NC=11;
+  ws.views=[{state:'frozen',xSplit:0,ySplit:5}];
+
+  ws.mergeCells(1,1,1,NC);
+  st(ws.getCell(1,1),'GSTR-2A  —  Annual Purchase Summary with Credit / Debit Note Adjustments','1F3864','FFFFFF',true,14,'center');
+  ws.getRow(1).height=34;
+
+  ws.mergeCells(2,1,2,NC);
+  st(ws.getCell(2,1),'Invoice Key: GSTIN+Invoice No+Date  |  Tax Key: +Rate  |  DCN Key: GSTIN+Note No+Date  |  Valid Rates: 0·5·12·18·28·40',
+     '2E75B6','FFFFFF',false,9,'center',true,0,null,true);
+  ws.getRow(2).height=15;
+
+  ws.mergeCells(3,1,3,NC);
+  st(ws.getCell(3,1),'Row 1: Total Purchases  |  Row 2: Add Debit Notes  |  Row 3: Less Credit Notes  |  Row 4: Net Purchases',
+     '34495E','FFFFFF',false,9,'center',true,0,null,true);
+  ws.getRow(3).height=13;
+
+  // group headers
+  ws.mergeCells(4,1,4,2);  st(ws.getCell(4,1),'Month / Row','1F3864'); ws.getCell(4,2).border=TB;
+  ['Inv.','Invoice Value (₹)','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)','Total Tax (₹)','Grand Total (₹)']
+    .forEach((h,i)=>{st(ws.getCell(4,i+3),h,'1F3864','FFFFFF',true,9,'center',true);});
+  ws.getRow(4).height=26;
+
+  const GAcc={invVal:0,tv:0,ig:0,cg:0,sg:0,ce:0,tt:0,gt:0,dnNv:0,dnTv:0,dnIg:0,dnCg:0,dnSg:0,dnCe:0,dnTax:0,dnGt:0,
+               cnNv:0,cnTv:0,cnIg:0,cnCg:0,cnSg:0,cnCe:0,cnTax:0,cnGt:0,netTv:0,netIg:0,netCg:0,netSg:0,netCe:0,netTax:0,netGt:0,ni:0};
+
+  let ROW=5;
+  results.forEach((r,ri)=>{
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    const pal=PAL[ri%PAL.length];
+    const{dark:DARK,light:LIGHT}=pal;
+    const dnTax=(d?d.dnIg+d.dnCg+d.dnSg+d.dnCe:0);
+    const cnTax=(d?d.cnIg+d.cnCg+d.cnSg+d.cnCe:0);
+    const dnGt=(d?d.dnTv+dnTax:0); const cnGt=(d?d.cnTv+cnTax:0);
+    const netTv=r.tv+(d?d.netTv:0),netIg=r.igst+(d?d.netIg:0),netCg=r.cgst+(d?d.netCg:0);
+    const netSg=r.sgst+(d?d.netSg:0),netCe=r.cess+(d?d.netCe:0),netTax=netIg+netCg+netSg+netCe,netGt=netTv+netTax;
+    const netNv=d?d.netNv:0;
+
+    // Month label — merge 4 rows
+    ws.mergeCells(ROW,1,ROW+3,1);
+    const mc=ws.getCell(ROW,1);
+    mc.value=r.label+(r.late.length?' ⚠':'');
+    mc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(DARK)}};
+    mc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+    mc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; mc.border=TB;
+
+    const row4=[
+      {label:'1  Total Purchases',lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,
+       vals:[r.totalInv,r.invVal,r.tv,r.igst,r.cgst,r.sgst,r.cess,r.totalTax,r.gt]},
+      {label:'2  Add: Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,
+       vals:[d?d.dnCount:null,d?d.dnNv:null,d?d.dnTv:null,d?d.dnIg:null,d?d.dnCg:null,d?d.dnSg:null,d?d.dnCe:null,dnTax||null,dnGt||null]},
+      {label:'3  Less: Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,
+       vals:[d?d.cnCount:null,d?d.cnNv:null,d?d.cnTv:null,d?d.cnIg:null,d?d.cnCg:null,d?d.cnSg:null,d?d.cnCe:null,cnTax||null,cnGt||null]},
+      {label:'4  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,
+       vals:[r.totalInv,r.invVal+netNv,netTv,netIg,netCg,netSg,netCe,netTax,netGt]},
+    ];
+    row4.forEach((rw,sub)=>{
+      const rr=ROW+sub; ws.getRow(rr).height=20;
+      st(ws.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+      rw.vals.forEach((v,i)=>{
+        const c=ws.getCell(rr,i+3); c.value=v||null;
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+        c.font={name:'Calibri',size:10,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+        c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+        if(typeof v==='number'&&v)c.numFmt=NF;
+      });
+    });
+    ROW+=4;
+    // separator
+    for(let c=1;c<=NC;c++){const cell=ws.getCell(ROW,c);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EDF2'}};cell.border={bottom:{style:'thin',color:{argb:'FF1F3864'}}};}
+    ws.getRow(ROW).height=3; ROW++;
+
+    GAcc.ni+=r.totalInv; GAcc.invVal+=r.invVal; GAcc.tv+=r.tv; GAcc.ig+=r.igst; GAcc.cg+=r.cgst; GAcc.sg+=r.sgst; GAcc.ce+=r.cess; GAcc.tt+=r.totalTax; GAcc.gt+=r.gt;
+    if(d){GAcc.dnNv+=d.dnNv;GAcc.dnTv+=d.dnTv;GAcc.dnIg+=d.dnIg;GAcc.dnCg+=d.dnCg;GAcc.dnSg+=d.dnSg;GAcc.dnCe+=d.dnCe;GAcc.dnTax+=dnTax;GAcc.dnGt+=dnGt;
+          GAcc.cnNv+=d.cnNv;GAcc.cnTv+=d.cnTv;GAcc.cnIg+=d.cnIg;GAcc.cnCg+=d.cnCg;GAcc.cnSg+=d.cnSg;GAcc.cnCe+=d.cnCe;GAcc.cnTax+=cnTax;GAcc.cnGt+=cnGt;}
+    GAcc.netTv+=netTv;GAcc.netIg+=netIg;GAcc.netCg+=netCg;GAcc.netSg+=netSg;GAcc.netCe+=netCe;GAcc.netTax+=netTax;GAcc.netGt+=netGt;
+  });
+
+  // Grand total block
+  ws.mergeCells(ROW,1,ROW+3,1);
+  const gtc=ws.getCell(ROW,1); gtc.value='GRAND\nTOTAL';
+  gtc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb('1F3864')}};
+  gtc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+  gtc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; gtc.border=TB;
+  const gt4=[
+    {label:'1  Total Purchases',lbg:'1F3864',vbg:'D6E4F0',vfc:'1F3864',bold:false,
+     vals:[GAcc.ni,GAcc.invVal,GAcc.tv,GAcc.ig,GAcc.cg,GAcc.sg,GAcc.ce,GAcc.tt,GAcc.gt]},
+    {label:'2  Add: Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,
+     vals:[null,GAcc.dnNv||null,GAcc.dnTv||null,GAcc.dnIg||null,GAcc.dnCg||null,GAcc.dnSg||null,GAcc.dnCe||null,GAcc.dnTax||null,GAcc.dnGt||null]},
+    {label:'3  Less: Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,
+     vals:[null,GAcc.cnNv||null,GAcc.cnTv||null,GAcc.cnIg||null,GAcc.cnCg||null,GAcc.cnSg||null,GAcc.cnCe||null,GAcc.cnTax||null,GAcc.cnGt||null]},
+    {label:'4  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,
+     vals:[GAcc.ni,GAcc.invVal+GAcc.dnNv-GAcc.cnNv,GAcc.netTv,GAcc.netIg,GAcc.netCg,GAcc.netSg,GAcc.netCe,GAcc.netTax,GAcc.netGt]},
+  ];
+  gt4.forEach((rw,sub)=>{
+    const rr=ROW+sub; ws.getRow(rr).height=24;
+    st(ws.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,10,'left',false,1);
+    rw.vals.forEach((v,i)=>{
+      const c=ws.getCell(rr,i+3); c.value=v||null;
+      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+      c.font={name:'Calibri',size:11,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+      c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+      if(typeof v==='number'&&v)c.numFmt=NF;
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // SHEET 2: Rate-wise Annual Summary
+  // ─────────────────────────────────────────────────────────
+  const wsr=wb.addWorksheet('Rate-wise Annual');
+  colW(wsr,[22,8,28,20,14,14,18,12,18,22]);
+  const RNC=10;
+
+  ws.mergeCells || (()=>{});
+  wsr.mergeCells(1,1,1,RNC); st(wsr.getCell(1,1),'GSTR-2A  —  Rate-wise Annual Tax Summary with DCN Adjustments','1F3864','FFFFFF',true,13,'center'); wsr.getRow(1).height=28;
+  wsr.mergeCells(2,1,2,RNC); st(wsr.getCell(2,1),'Grouped by GST Rate per Month  |  Row 1: Purchases  |  Row 2: Add Debit Notes  |  Row 3: Less Credit Notes  |  Row 4: Net','2E75B6','FFFFFF',false,9,'center',true,0,null,true); wsr.getRow(2).height=14;
+  ['Month','Rate','Row','Taxable Val (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','Total Tax (₹)','Net Grand Total (₹)']
+    .forEach((h,i)=>st(wsr.getCell(3,i+1),h,'1F3864','FFFFFF',true,9,'center',true));
+  wsr.getRow(3).height=26; wsr.views=[{state:'frozen',xSplit:0,ySplit:3}];
+
+  const yearByRate={};
+  let RROW=4;
+  results.forEach((r,ri)=>{
+    const pal=PAL[ri%PAL.length];const{dark:DARK,light:LIGHT,mid:MID}=pal;
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    const tbr=taxByRate(r.tax,d?d.td:null);
+    const rates=Object.keys(tbr).map(Number).sort((a,b)=>a-b);
+    if(!rates.length)return;
+    const totalRateRows=rates.length*4;
+    wsr.mergeCells(RROW,1,RROW+totalRateRows-1,1);
+    const mc2=wsr.getCell(RROW,1); mc2.value=r.label;
+    mc2.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(DARK)}};
+    mc2.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+    mc2.alignment={horizontal:'center',vertical:'middle'}; mc2.border=TB;
+
+    rates.forEach(rate=>{
+      const rb=tbr[rate];
+      const d_td=d?d.td:[];
+      const cnR=d_td.filter(x=>x.rate===rate&&x.noteType.includes('Credit'));
+      const dnR=d_td.filter(x=>x.rate===rate&&x.noteType.includes('Debit'));
+      const SR=(l,k)=>l.reduce((s,x)=>s+x[k],0);
+      const cnTv=SR(cnR,'tv'),cnIg=SR(cnR,'igst'),cnCg=SR(cnR,'cgst'),cnSg=SR(cnR,'sgst'),cnCe=SR(cnR,'cess');
+      const dnTv=SR(dnR,'tv'),dnIg=SR(dnR,'igst'),dnCg=SR(dnR,'cgst'),dnSg=SR(dnR,'sgst'),dnCe=SR(dnR,'cess');
+      const cnTax=cnIg+cnCg+cnSg+cnCe,dnTax=dnIg+dnCg+dnSg+dnCe;
+
+      wsr.mergeCells(RROW,2,RROW+3,2);
+      const rc=wsr.getCell(RROW,2); rc.value=`${rate}%`;
+      rc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(MID)}};
+      rc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+      rc.alignment={horizontal:'center',vertical:'middle'}; rc.border=TB;
+
+      const r4=[
+        {label:'1  Purchases',lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,
+         vals:[rb.invTv,rb.invIg,rb.invCg,rb.invSg,rb.invCe,rb.invTax,rb.invGt]},
+        {label:'2  Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,
+         vals:[dnTv||null,dnIg||null,dnCg||null,dnSg||null,dnCe||null,dnTax||null,(dnTv+dnTax)||null]},
+        {label:'3  Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,
+         vals:[cnTv||null,cnIg||null,cnCg||null,cnSg||null,cnCe||null,cnTax||null,(cnTv+cnTax)||null]},
+        {label:'4  Net',lbg:GD,vbg:GL,vfc:GD,bold:true,
+         vals:[rb.netTv,rb.netIg,rb.netCg,rb.netSg,rb.netCe,rb.netTax,rb.netGt]},
+      ];
+      r4.forEach((rw,sub)=>{
+        const rr=RROW+sub; wsr.getRow(rr).height=19;
+        st(wsr.getCell(rr,3),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+        rw.vals.forEach((v,i)=>{
+          const c=wsr.getCell(rr,i+4); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+          c.font={name:'Calibri',size:9,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+          c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+          if(typeof v==='number'&&v)c.numFmt=NF;
+        });
+      });
+      RROW+=4;
+      // accumulate year
+      if(!yearByRate[rate])yearByRate[rate]={tv:0,ig:0,cg:0,sg:0,ce:0,gt:0,cnTv:0,cnIg:0,cnCg:0,cnSg:0,cnCe:0,dnTv:0,dnIg:0,dnCg:0,dnSg:0,dnCe:0};
+      const yr=yearByRate[rate];
+      yr.tv+=rb.invTv;yr.ig+=rb.invIg;yr.cg+=rb.invCg;yr.sg+=rb.invSg;yr.ce+=rb.invCe;yr.gt+=rb.invGt;
+      yr.cnTv+=cnTv;yr.cnIg+=cnIg;yr.cnCg+=cnCg;yr.cnSg+=cnSg;yr.cnCe+=cnCe;
+      yr.dnTv+=dnTv;yr.dnIg+=dnIg;yr.dnCg+=dnCg;yr.dnSg+=dnSg;yr.dnCe+=dnCe;
+    });
+    for(let c=1;c<=RNC;c++){const cell=wsr.getCell(RROW,c);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EDF2'}};cell.border={bottom:{style:'thin',color:{argb:'FF1F3864'}}};}
+    wsr.getRow(RROW).height=3; RROW++;
+  });
+
+  // Year totals by rate
+  sHdr(wsr,RROW,'  📊  YEAR TOTALS BY GST RATE  —  FY 2025-26',RNC,'1F3864',22); RROW++;
+  Object.keys(yearByRate).map(Number).sort((a,b)=>a-b).forEach(rate=>{
+    const yr=yearByRate[rate];
+    const netTv=yr.tv+yr.dnTv-yr.cnTv,netIg=yr.ig+yr.dnIg-yr.cnIg,netCg=yr.cg+yr.dnCg-yr.cnCg;
+    const netSg=yr.sg+yr.dnSg-yr.cnSg,netCe=yr.ce+yr.dnCe-yr.cnCe,netTax=netIg+netCg+netSg+netCe,netGt=netTv+netTax;
+    const dnTax=yr.dnIg+yr.dnCg+yr.dnSg+yr.dnCe,cnTax=yr.cnIg+yr.cnCg+yr.cnSg+yr.cnCe;
+    wsr.mergeCells(RROW,1,RROW+3,1);
+    const yrc=wsr.getCell(RROW,1); yrc.value=`All Months\n${rate}%`;
+    yrc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb('1F3864')}};
+    yrc.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}};
+    yrc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; yrc.border=TB;
+    wsr.mergeCells(RROW,2,RROW+3,2);
+    const yrc2=wsr.getCell(RROW,2); yrc2.value=`${rate}%`;
+    yrc2.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb('2E75B6')}};
+    yrc2.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+    yrc2.alignment={horizontal:'center',vertical:'middle'}; yrc2.border=TB;
+    const yr4=[
+      {label:'1  Purchases',lbg:'1F3864',vbg:'D6E4F0',vfc:'1F3864',bold:false,vals:[yr.tv,yr.ig,yr.cg,yr.sg,yr.ce,yr.gt-yr.tv,yr.gt]},
+      {label:'2  Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,vals:[yr.dnTv||null,yr.dnIg||null,yr.dnCg||null,yr.dnSg||null,yr.dnCe||null,dnTax||null,(yr.dnTv+dnTax)||null]},
+      {label:'3  Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,vals:[yr.cnTv||null,yr.cnIg||null,yr.cnCg||null,yr.cnSg||null,yr.cnCe||null,cnTax||null,(yr.cnTv+cnTax)||null]},
+      {label:'4  Net',lbg:GD,vbg:GL,vfc:GD,bold:true,vals:[netTv,netIg,netCg,netSg,netCe,netTax,netGt]},
+    ];
+    yr4.forEach((rw,sub)=>{
+      const rr=RROW+sub; wsr.getRow(rr).height=22;
+      st(wsr.getCell(rr,3),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+      rw.vals.forEach((v,i)=>{
+        const c=wsr.getCell(rr,i+4); c.value=v||null;
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+        c.font={name:'Calibri',size:10,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+        c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+        if(typeof v==='number'&&v)c.numFmt=NF;
+      });
+    });
+    RROW+=4;
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // SHEET 3: Late Filing Register
+  // ─────────────────────────────────────────────────────────
+  const wsl=wb.addWorksheet('Late Filing Register');
+  colW(wsl,[20,24,34,16,22,18,14,22]);
+  const LNC=8;
+  wsl.mergeCells(1,1,1,LNC); st(wsl.getCell(1,1),'⚠  Late Filed Invoice Register  —  GSTR-2A',OD,'FFFFFF',true,13,'center'); wsl.getRow(1).height=28;
+  wsl.mergeCells(2,1,2,LNC); st(wsl.getCell(2,1),'Invoice date falls in a different month/FY than the GSTR-1 return period in which it was filed by the supplier.',OL,OD,false,9,'center',true,0,null,true); wsl.getRow(2).height=16;
+  ['Filed In','Invoice Number','GSTIN of Supplier','Invoice Date','Belongs To Month','Invoice Value (₹)','Delay (Months)','Same FY?']
+    .forEach((h,i)=>st(wsl.getCell(3,i+1),h,OD,'FFFFFF',true,9,'center',true));
+  wsl.getRow(3).height=24;
+
+  const allLate=results.flatMap(r=>r.late.map(x=>({...x,filedIn:r.label,fm:r.m,fy:r.y})));
+  if(allLate.length){
+    allLate.forEach((x,ri)=>{
+      const row=ri+4; wsl.getRow(row).height=18;
+      const alt=ri%2===0?OL:'FFFFFF';
+      const delay=(x.fy-x.im[0])*12+(x.fm-x.im[1]);
+      const belongs=`${MN[x.im[1]]}-${x.im[0]}`;
+      const samefy=getFY(x.fy,x.fm)===getFY(x.im[0],x.im[1]);
+      [x.filedIn,x.invNo,x.gstin,(x.date||'').trim(),belongs,x.iv,delay,samefy?'✅ Same FY':'⚠ Different FY']
+        .forEach((v,ci)=>{
+          const c=wsl.getCell(row,ci+1); c.value=v;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+          const vfc=ci===7?(samefy?GD:OD):OD;
+          c.font={name:'Calibri',size:9,bold:ci<=1,color:{argb:argb(vfc)}};
+          c.alignment={horizontal:ci===5?'right':'center',vertical:'middle'}; c.border=TB;
+          if(ci===5&&typeof v==='number')c.numFmt=NF;
+        });
+    });
+    const tr=allLate.length+4; wsl.getRow(tr).height=22;
+    wsl.mergeCells(tr,1,tr,5);
+    st(wsl.getCell(tr,1),`TOTAL  (${allLate.length} late invoice(s))`,OD,'FFFFFF',true,10,'right',false,1);
+    for(let c=2;c<=5;c++)bk(wsl,tr,c,OD);
+    st(wsl.getCell(tr,6),allLate.reduce((s,x)=>s+x.iv,0),OD,'FFFFFF',true,10,'right',false,0,NF);
+    for(let c=7;c<=LNC;c++)bk(wsl,tr,c,OD);
+  } else {
+    wsl.mergeCells(4,1,4,LNC); st(wsl.getCell(4,1),'✅  No late filed invoices detected across all months.',GL,GD,true,11,'center'); wsl.getRow(4).height=26;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // SHEETS 4+: Monthly
+  // ─────────────────────────────────────────────────────────
+  results.forEach((r,idx)=>{
+    const pal=PAL[idx%PAL.length];const{dark:DARK,light:LIGHT,mid:MID}=pal;
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    const wm=wb.addWorksheet(r.label);
+    wm.sheet_view_options={showGridLines:false};
+    const MNC=9; colW(wm,[30,22,10,16,26,20,18,18,14]);
+    let MR=1;
+
+    wm.mergeCells(MR,1,MR,MNC);
+    st(wm.getCell(MR,1),`Purchase Summary  —  ${r.label}  |  ${getFY(r.y,r.m)}`,DARK,'FFFFFF',true,14,'center');
+    wm.getRow(MR).height=34; MR++;
+
+    const netGtM=r.gt+(d?d.netGrand:0);
+    wm.mergeCells(MR,1,MR,MNC);
+    st(wm.getCell(MR,1),`  ${r.totalInv} Invoices  ·  Gross: ₹${r.gt.toLocaleString('en-IN',{minimumFractionDigits:2})}  ·  DCN Adj: ₹${(d?d.netGrand:0).toLocaleString('en-IN',{minimumFractionDigits:2})}  ·  Net: ₹${netGtM.toLocaleString('en-IN',{minimumFractionDigits:2})}`,
+       MID,'FFFFFF',false,9,'left',true,1,null,true);
+    wm.getRow(MR).height=15; MR+=2;
+
+    // ── 1. Monthly Purchase Summary block ──────────────────────────────────
+    sHdr(wm,MR,`  📋  Monthly Purchase Summary  —  ${r.label}`,MNC,DARK,20); MR++;
+    ['','Inv.','Invoice Value (₹)','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)','Grand Total (₹)']
+      .forEach((h,i)=>st(wm.getCell(MR,i+1),h,MID,'FFFFFF',true,9,'center',true));
+    wm.getRow(MR).height=22; MR++;
+
+    const dnTax=d?d.dnIg+d.dnCg+d.dnSg+d.dnCe:0;
+    const cnTax=d?d.cnIg+d.cnCg+d.cnSg+d.cnCe:0;
+    const dnGt=d?d.dnTv+dnTax:0; const cnGt=d?d.cnTv+cnTax:0;
+    const netTv=r.tv+(d?d.netTv:0),netIg=r.igst+(d?d.netIg:0),netCg=r.cgst+(d?d.netCg:0);
+    const netSg=r.sgst+(d?d.netSg:0),netCe=r.cess+(d?d.netCe:0);
+    const netTax=netIg+netCg+netSg+netCe,netGt=netTv+netTax,netNv=d?d.netNv:0;
+
+    const mSumRows=[
+      {label:'1  Total Purchases',lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,
+       vals:[r.totalInv,r.invVal,r.tv,r.igst,r.cgst,r.sgst,r.cess,r.gt]},
+      {label:'2  Add: Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,
+       vals:[d?d.dnCount:null,d?d.dnNv:null,d?d.dnTv:null,d?d.dnIg:null,d?d.dnCg:null,d?d.dnSg:null,d?d.dnCe:null,dnGt||null]},
+      {label:'3  Less: Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,
+       vals:[d?d.cnCount:null,d?d.cnNv:null,d?d.cnTv:null,d?d.cnIg:null,d?d.cnCg:null,d?d.cnSg:null,d?d.cnCe:null,cnGt||null]},
+      {label:'4  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,
+       vals:[r.totalInv,r.invVal+netNv,netTv,netIg,netCg,netSg,netCe,netGt]},
+    ];
+    mSumRows.forEach(rw=>{
+      wm.getRow(MR).height=22;
+      st(wm.getCell(MR,1),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+      rw.vals.forEach((v,i)=>{
+        const c=wm.getCell(MR,i+2); c.value=v||null;
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+        c.font={name:'Calibri',size:10,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+        c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+        if(typeof v==='number'&&v)c.numFmt=NF;
+      });
+      MR++;
+    });
+    MR++;
+
+    // ── 2. Rate-wise Tax Detail (grouped) ────────────────────────────────────
+    const tbr=taxByRate(r.tax,d?d.td:null);
+    const rates=Object.keys(tbr).map(Number).sort((a,b)=>a-b);
+    if(rates.length){
+      sHdr(wm,MR,`  💰  Rate-wise Tax Detail  —  Grouped by GST Rate`,MNC,DARK,20); MR++;
+      ['GST Rate','Row','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','Total Tax (₹)','Net Grand Total (₹)']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,MID,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+
+      rates.forEach(rate=>{
+        const rb=tbr[rate];
+        const d_td=d?d.td:[];
+        const cnR=d_td.filter(x=>x.rate===rate&&x.noteType.includes('Credit'));
+        const dnR=d_td.filter(x=>x.rate===rate&&x.noteType.includes('Debit'));
+        const SR=(l,k)=>l.reduce((s,x)=>s+x[k],0);
+        const cnTv2=SR(cnR,'tv'),cnIg2=SR(cnR,'igst'),cnCg2=SR(cnR,'cgst'),cnSg2=SR(cnR,'sgst'),cnCe2=SR(cnR,'cess');
+        const dnTv2=SR(dnR,'tv'),dnIg2=SR(dnR,'igst'),dnCg2=SR(dnR,'cgst'),dnSg2=SR(dnR,'sgst'),dnCe2=SR(dnR,'cess');
+        const cnTax2=cnIg2+cnCg2+cnSg2+cnCe2,dnTax2=dnIg2+dnCg2+dnSg2+dnCe2;
+
+        wm.mergeCells(MR,1,MR+3,1);
+        const rc=wm.getCell(MR,1); rc.value=`${rate}%`;
+        rc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(MID)}};
+        rc.font={name:'Calibri',size:12,bold:true,color:{argb:'FFFFFFFF'}};
+        rc.alignment={horizontal:'center',vertical:'middle'}; rc.border=TB;
+
+        const rr4=[
+          {label:'1  Purchases',lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,
+           vals:[rb.invTv,rb.invIg,rb.invCg,rb.invSg,rb.invCe,rb.invTax,rb.invGt]},
+          {label:'2  Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,
+           vals:[dnTv2||null,dnIg2||null,dnCg2||null,dnSg2||null,dnCe2||null,dnTax2||null,(dnTv2+dnTax2)||null]},
+          {label:'3  Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,
+           vals:[cnTv2||null,cnIg2||null,cnCg2||null,cnSg2||null,cnCe2||null,cnTax2||null,(cnTv2+cnTax2)||null]},
+          {label:'4  Net',lbg:GD,vbg:GL,vfc:GD,bold:true,
+           vals:[rb.netTv,rb.netIg,rb.netCg,rb.netSg,rb.netCe,rb.netTax,rb.netGt]},
+        ];
+        rr4.forEach((rw,sub)=>{
+          const rr=MR+sub; wm.getRow(rr).height=20;
+          st(wm.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+          rw.vals.forEach((v,i)=>{
+            const c=wm.getCell(rr,i+3); c.value=v||null;
+            c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+            c.font={name:'Calibri',size:9,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+            c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+            if(typeof v==='number'&&v)c.numFmt=NF;
+          });
+        });
+        MR+=4;
+      });
+      MR++;
+    }
+
+    // ── 3. Invoice-wise Detail ──────────────────────────────────────────────
+    sHdr(wm,MR,`  🧾  Invoice-wise Detail  (${r.totalInv} invoices)  |  Key: GSTIN + Invoice No + Date`,MNC,DARK,20); MR++;
+    ['GSTIN of Supplier','Invoice Number','Type','Invoice Date','Place of Supply','Invoice Value (₹)','Remark']
+      .forEach((h,i)=>st(wm.getCell(MR,i+1),h,MID,'FFFFFF',true,9,'center',true));
+    wm.getRow(MR).height=22; MR++;
+
+    r.inv.forEach((inv,i)=>{
+      const alt=i%2===0?LIGHT:'FFFFFF'; const bg=inv.isLate?OL:alt; const fc=inv.isLate?OD:'1F3864';
+      wm.getRow(MR).height=18;
+      [inv.gstin,inv.invNo,inv.type,inv.date,inv.pos,inv.iv,inv.isLate?'⚠ Late Filed':'—']
+        .forEach((v,ci)=>st(wm.getCell(MR,ci+1),v,bg,fc,inv.isLate,9,ci===5?'right':'center',false,0,ci===5?NF:null));
+      MR++;
+    });
+
+    wm.getRow(MR).height=20;
+    wm.mergeCells(MR,1,MR,5);
+    st(wm.getCell(MR,1),`TOTAL  ·  ${r.totalInv} Invoices`,DARK,'FFFFFF',true,10,'right',false,1);
+    for(let c=2;c<=5;c++)bk(wm,MR,c,DARK);
+    st(wm.getCell(MR,6),r.invVal,DARK,'FFFFFF',true,10,'right',false,0,NF);
+    bk(wm,MR,7,DARK); MR+=2;
+
+    // ── 4. Late Filing Notes ────────────────────────────────────────────────
+    sHdr(wm,MR,'  ⚠  Late Filing Notes',MNC,OD,20); MR++;
+    if(r.late.length){
+      wm.mergeCells(MR,1,MR,MNC);
+      st(wm.getCell(MR,1),`⚠  ${r.late.length} late filed invoice(s) in ${r.label}:`,OL,OD,true,10,'left',false,1);
+      wm.getRow(MR).height=18; MR++;
+      r.late.forEach(x=>{
+        const belongs=`${MN[x.im[1]]}-${x.im[0]}`;
+        const samefy=getFY(r.y,r.m)===getFY(x.im[0],x.im[1]);
+        wm.mergeCells(MR,1,MR,MNC);
+        st(wm.getCell(MR,1),`  •  ${x.invNo}  |  GSTIN: ${x.gstin}  |  Date: ${(x.date||'').trim()}  |  Belongs to: ${belongs}  |  Same FY: ${samefy?'Yes':'⚠ NO'}`,
+           'FEF0E7',OD,false,9,'left',true,1);
+        wm.getRow(MR).height=18; MR++;
+      });
+    } else {
+      wm.mergeCells(MR,1,MR,MNC);
+      st(wm.getCell(MR,1),`✅  No late filed invoices in ${r.label}.`,GL,GD,true,10,'left',false,1);
+      wm.getRow(MR).height=18;
+    }
+  });
+
+  // ── Download ──────────────────────────────────────────────────────────────
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download=`GSTR2A_Report_${new Date().toISOString().slice(0,10)}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── GENERATE ────────────────────────────────────────────────────────────────
+async function generate(){
+  if(!invFiles.length&&!dcnFiles.length)return;
+  setStatus('info','⏳ Processing all files and building styled Excel…');
+  document.getElementById('gen-btn').disabled=true;
+  await new Promise(r=>setTimeout(r,60));
+  try{
+    // Merge inv files by month
+    const invByMonth=new Map();
+    invFiles.forEach(entry=>{
+      const key=`${entry.y}-${entry.m}`;
+      if(!invByMonth.has(key)){invByMonth.set(key,{...entry,rows:[]});}
+      invByMonth.get(key).rows.push(...entry.rows);
+    });
+    const results=[...invByMonth.values()].map(e=>processInvMonth(e)).sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m);
+
+    // Merge DCN files by month
+    const dcnByMonth=new Map();
+    dcnFiles.forEach(entry=>{
+      const key=`${entry.y}-${entry.m}`;
+      if(!dcnByMonth.has(key)){dcnByMonth.set(key,{...entry,rows:[]});}
+      dcnByMonth.get(key).rows.push(...entry.rows);
+    });
+    const dcnProcessed=new Map();
+    dcnByMonth.forEach((entry,key)=>dcnProcessed.set(key,processDCNMonth(entry)));
+
+    renderPreview(results,dcnProcessed);
+    await buildExcel(results,dcnProcessed);
+    setStatus('success',`✅ Report generated for ${results.length} month(s) with ${dcnProcessed.size} month(s) of DCN data. Downloading…`);
+  }catch(err){
+    setStatus('error','❌ Error: '+err.message); console.error(err);
+  }
+  document.getElementById('gen-btn').disabled=false;
+}
+</script>
+</body>
+</html>
