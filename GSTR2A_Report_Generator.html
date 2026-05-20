@@ -88,6 +88,48 @@ let invFiles=[], dcnFiles=[];
 // ─── FY helper ───────────────────────────────────────────────────────────────
 function getFY(y,m){ return m>=4 ? `FY ${y}-${String(y+1).slice(-2)}` : `FY ${y-1}-${String(y).slice(-2)}`; }
 
+// ─── Trade Name Cache & Live Fetcher (via Anthropic API + web_search) ───────────
+const tradeNameCache = {
+  '01AAACH2702H2ZD': 'HDFC BANK LTD',
+  '01AADCI8122R1ZF': 'IA MULTI VENTURES PVT LTD',
+};
+
+// ── Fetch trade name from local GST search server (localhost:3001) ──────────
+async function fetchTradeName(gstin) {
+  try {
+    const res = await fetch('http://localhost:3001/gst-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gstin })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Response: { success: true, gstin: "...", tradeName: "...", rawResult: { tradeName: "..." } }
+    const name = data?.tradeName || data?.rawResult?.tradeName;
+    return (name && name.trim().length > 1) ? name.trim().toUpperCase() : null;
+  } catch (e) {
+    console.warn(`GST lookup failed for ${gstin}:`, e.message);
+    return null;
+  }
+}
+
+async function prefetchTradeNames(gstins) {
+  const unique = [...new Set(gstins.map(g => (g||'').trim().toUpperCase()).filter(Boolean))];
+  const unknown = unique.filter(g => !tradeNameCache[g]);
+  if (!unknown.length) return;
+  await Promise.allSettled(
+    unknown.map(async g => {
+      const name = await fetchTradeName(g);
+      if (name) tradeNameCache[g] = name;
+    })
+  );
+}
+
+function getTradeName(gstin) {
+  const g = (gstin||'').trim().toUpperCase();
+  return tradeNameCache[g] || g;
+}
+
 // ─── Drag & Drop ──────────────────────────────────────────────────────────────
 const dz=document.getElementById('dz');
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
@@ -191,7 +233,8 @@ function renderChips(){
       <span>${f.file.name.length>30?f.file.name.slice(0,28)+'…':f.file.name}</span>
       <span class="rm" onclick="removeFile(${i},${f.isDCN},'${f.label}')">✕</span>
     </div>`).join('');
-  document.getElementById('gen-btn').disabled=(invFiles.length+dcnFiles.length)===0;
+  const hasFiles = (invFiles.length+dcnFiles.length) > 0;
+  document.getElementById('gen-btn').disabled = !hasFiles;
 }
 
 function removeFile(i,isDCN,label){
@@ -264,19 +307,33 @@ function processDCNMonth(entry){
         cgst:cn(row['Central Tax']),sgst:cn(row['State/UT tax']),cess:cn(row['Cess'])});
     }
   });
-  const S=(a,k,t)=>a.filter(x=>t?x.noteType.includes(t):true).reduce((s,x)=>s+x[k],0);
-  const cnNv=S(nd,'noteVal','Credit'),dnNv=S(nd,'noteVal','Debit');
-  const cnTv=S(td,'tv','Credit'),dnTv=S(td,'tv','Debit');
-  const cnIg=S(td,'igst','Credit'),dnIg=S(td,'igst','Debit');
-  const cnCg=S(td,'cgst','Credit'),dnCg=S(td,'cgst','Debit');
-  const cnSg=S(td,'sgst','Credit'),dnSg=S(td,'sgst','Debit');
-  const cnCe=S(td,'cess','Credit'),dnCe=S(td,'cess','Debit');
+  // Aggregate per-note taxes from td rows
+  const noteAgg=new Map();
+  td.forEach(t=>{
+    const k=`${t.gstin}||${t.noteNo}`;
+    if(!noteAgg.has(k))noteAgg.set(k,{gstin:t.gstin,noteNo:t.noteNo,noteType:t.noteType,noteDate:t.noteDate,noteVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0});
+    const e=noteAgg.get(k);e.tv+=t.tv;e.igst+=t.igst;e.cgst+=t.cgst;e.sgst+=t.sgst;e.cess+=t.cess;
+  });
+  // Patch noteVal from nd summary rows
+  nd.forEach(n=>{
+    const k=`${n.gstin}||${n.noteNo}`;
+    if(noteAgg.has(k))noteAgg.get(k).noteVal=n.noteVal;
+    else noteAgg.set(k,{gstin:n.gstin,noteNo:n.noteNo,noteType:n.noteType,noteDate:n.noteDate,noteVal:n.noteVal,tv:0,igst:0,cgst:0,sgst:0,cess:0});
+  });
+  const ndAgg=Array.from(noteAgg.values()).sort((a,b)=>a.gstin.localeCompare(b.gstin)||a.noteNo.localeCompare(b.noteNo));
+  const S=(a,k,t)=>a.filter(x=>t?x.noteType.includes(t):true).reduce((s,x)=>s+(x[k]||0),0);
+  const cnNv=S(ndAgg,'noteVal','Credit'),dnNv=S(ndAgg,'noteVal','Debit');
+  const cnTv=S(ndAgg,'tv','Credit'),dnTv=S(ndAgg,'tv','Debit');
+  const cnIg=S(ndAgg,'igst','Credit'),dnIg=S(ndAgg,'igst','Debit');
+  const cnCg=S(ndAgg,'cgst','Credit'),dnCg=S(ndAgg,'cgst','Debit');
+  const cnSg=S(ndAgg,'sgst','Credit'),dnSg=S(ndAgg,'sgst','Debit');
+  const cnCe=S(ndAgg,'cess','Credit'),dnCe=S(ndAgg,'cess','Debit');
   const netTv=dnTv-cnTv,netIg=dnIg-cnIg,netCg=dnCg-cnCg,netSg=dnSg-cnSg,netCe=dnCe-cnCe;
   const netTax=netIg+netCg+netSg+netCe;
   return{y,m,cnNv,dnNv,netNv:dnNv-cnNv,cnTv,dnTv,netTv,cnIg,dnIg,netIg,
          cnCg,dnCg,netCg,cnSg,dnSg,netSg,cnCe,dnCe,netCe,netTax,netGrand:netTv+netTax,
-         nd,td,cnCount:nd.filter(x=>x.noteType.includes('Credit')).length,
-         dnCount:nd.filter(x=>x.noteType.includes('Debit')).length};
+         nd:ndAgg,td,cnCount:ndAgg.filter(x=>x.noteType.includes('Credit')).length,
+         dnCount:ndAgg.filter(x=>x.noteType.includes('Debit')).length};
 }
 
 // ─── Tax by rate ──────────────────────────────────────────────────────────────
@@ -644,11 +701,11 @@ async function buildExcel(results, dcnByMonth){
   // SHEET 3: Late Filing Register
   // ─────────────────────────────────────────────────────────
   const wsl=wb.addWorksheet('Late Filing Register');
-  colW(wsl,[20,24,34,16,22,18,14,22]);
-  const LNC=8;
+  colW(wsl,[28,18,22,30,14,20,16,14,20]);
+  const LNC=9;
   wsl.mergeCells(1,1,1,LNC); st(wsl.getCell(1,1),'⚠  Late Filed Invoice Register  —  GSTR-2A',OD,'FFFFFF',true,13,'center'); wsl.getRow(1).height=28;
   wsl.mergeCells(2,1,2,LNC); st(wsl.getCell(2,1),'Invoice date falls in a different month/FY than the GSTR-1 return period in which it was filed by the supplier.',OL,OD,false,9,'center',true,0,null,true); wsl.getRow(2).height=16;
-  ['Filed In','Invoice Number','GSTIN of Supplier','Invoice Date','Belongs To Month','Invoice Value (₹)','Delay (Months)','Same FY?']
+  ['Trade Name','Filed In','Invoice Number','GSTIN of Supplier','Invoice Date','Belongs To Month','Invoice Value (₹)','Delay (Months)','Same FY?']
     .forEach((h,i)=>st(wsl.getCell(3,i+1),h,OD,'FFFFFF',true,9,'center',true));
   wsl.getRow(3).height=24;
 
@@ -660,22 +717,22 @@ async function buildExcel(results, dcnByMonth){
       const delay=(x.fy-x.im[0])*12+(x.fm-x.im[1]);
       const belongs=`${MN[x.im[1]]}-${x.im[0]}`;
       const samefy=getFY(x.fy,x.fm)===getFY(x.im[0],x.im[1]);
-      [x.filedIn,x.invNo,x.gstin,(x.date||'').trim(),belongs,x.iv,delay,samefy?'✅ Same FY':'⚠ Different FY']
+      [getTradeName(x.gstin),x.filedIn,x.invNo,x.gstin,(x.date||'').trim(),belongs,x.iv,delay,samefy?'✅ Same FY':'⚠ Different FY']
         .forEach((v,ci)=>{
           const c=wsl.getCell(row,ci+1); c.value=v;
           c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
-          const vfc=ci===7?(samefy?GD:OD):OD;
-          c.font={name:'Calibri',size:9,bold:ci<=1,color:{argb:argb(vfc)}};
-          c.alignment={horizontal:ci===5?'right':'center',vertical:'middle'}; c.border=TB;
-          if(ci===5&&typeof v==='number')c.numFmt=NF;
+          const vfc=ci===8?(samefy?GD:OD):OD;
+          c.font={name:'Calibri',size:9,bold:ci<=2,color:{argb:argb(vfc)}};
+          c.alignment={horizontal:ci===6?'right':'center',vertical:'middle'}; c.border=TB;
+          if(ci===6&&typeof v==='number')c.numFmt=NF;
         });
     });
     const tr=allLate.length+4; wsl.getRow(tr).height=22;
-    wsl.mergeCells(tr,1,tr,5);
+    wsl.mergeCells(tr,1,tr,6);
     st(wsl.getCell(tr,1),`TOTAL  (${allLate.length} late invoice(s))`,OD,'FFFFFF',true,10,'right',false,1);
-    for(let c=2;c<=5;c++)bk(wsl,tr,c,OD);
-    st(wsl.getCell(tr,6),allLate.reduce((s,x)=>s+x.iv,0),OD,'FFFFFF',true,10,'right',false,0,NF);
-    for(let c=7;c<=LNC;c++)bk(wsl,tr,c,OD);
+    for(let c=2;c<=6;c++)bk(wsl,tr,c,OD);
+    st(wsl.getCell(tr,7),allLate.reduce((s,x)=>s+x.iv,0),OD,'FFFFFF',true,10,'right',false,0,NF);
+    for(let c=8;c<=LNC;c++)bk(wsl,tr,c,OD);
   } else {
     wsl.mergeCells(4,1,4,LNC); st(wsl.getCell(4,1),'✅  No late filed invoices detected across all months.',GL,GD,true,11,'center'); wsl.getRow(4).height=26;
   }
@@ -688,7 +745,7 @@ async function buildExcel(results, dcnByMonth){
     const d=dcnByMonth.get(`${r.y}-${r.m}`);
     const wm=wb.addWorksheet(r.label);
     wm.sheet_view_options={showGridLines:false};
-    const MNC=9; colW(wm,[30,22,10,16,26,20,18,18,14]);
+    const MNC=10; colW(wm,[30,28,20,14,18,18,14,14,14,12]);
     let MR=1;
 
     wm.mergeCells(MR,1,MR,MNC);
@@ -790,27 +847,109 @@ async function buildExcel(results, dcnByMonth){
     }
 
     // ── 3. Invoice-wise Detail ──────────────────────────────────────────────
+    // Cols: GSTIN | Invoice No | Date | Total Invoice Value | Taxable | IGST | CGST | SGST | Cess
     sHdr(wm,MR,`  🧾  Invoice-wise Detail  (${r.totalInv} invoices)  |  Key: GSTIN + Invoice No + Date`,MNC,DARK,20); MR++;
-    ['GSTIN of Supplier','Invoice Number','Type','Invoice Date','Place of Supply','Invoice Value (₹)','Remark']
+    ['GSTIN of Supplier','Trade Name','Invoice Number','Invoice Date','Total Invoice Value (₹)','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)']
       .forEach((h,i)=>st(wm.getCell(MR,i+1),h,MID,'FFFFFF',true,9,'center',true));
     wm.getRow(MR).height=22; MR++;
 
+    // Build tax lookup per invoice
+    const invTaxMap=new Map();
+    r.tax.forEach(t=>{
+      const k=`${t.gstin}||${t.invNo}||${t.date}`;
+      if(!invTaxMap.has(k))invTaxMap.set(k,{tv:0,igst:0,cgst:0,sgst:0,cess:0});
+      const e=invTaxMap.get(k);
+      e.tv+=t.tv;e.igst+=t.igst;e.cgst+=t.cgst;e.sgst+=t.sgst;e.cess+=t.cess;
+    });
+
+    let invValTotal=0,invTvTotal=0,invIgTotal=0,invCgTotal=0,invSgTotal=0,invCeTotal=0;
     r.inv.forEach((inv,i)=>{
       const alt=i%2===0?LIGHT:'FFFFFF'; const bg=inv.isLate?OL:alt; const fc=inv.isLate?OD:'1F3864';
       wm.getRow(MR).height=18;
-      [inv.gstin,inv.invNo,inv.type,inv.date,inv.pos,inv.iv,inv.isLate?'⚠ Late Filed':'—']
-        .forEach((v,ci)=>st(wm.getCell(MR,ci+1),v,bg,fc,inv.isLate,9,ci===5?'right':'center',false,0,ci===5?NF:null));
+      const tk=`${inv.gstin}||${inv.invNo}||${inv.date}`;
+      const tx=invTaxMap.get(tk)||{tv:0,igst:0,cgst:0,sgst:0,cess:0};
+      [inv.gstin,getTradeName(inv.gstin),inv.invNo,(inv.date||'').trim(),inv.iv,tx.tv,tx.igst,tx.cgst,tx.sgst,tx.cess]
+        .forEach((v,ci)=>{
+          const c=wm.getCell(MR,ci+1); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(bg)}};
+          c.font={name:'Calibri',size:9,bold:inv.isLate,color:{argb:argb(fc)}};
+          c.alignment={horizontal:ci>=4?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+          if(ci>=4&&typeof v==='number'&&v)c.numFmt=NF;
+        });
+      invValTotal+=inv.iv; invTvTotal+=tx.tv; invIgTotal+=tx.igst; invCgTotal+=tx.cgst; invSgTotal+=tx.sgst; invCeTotal+=tx.cess;
       MR++;
     });
 
+    // Invoice total row
     wm.getRow(MR).height=20;
-    wm.mergeCells(MR,1,MR,5);
+    wm.mergeCells(MR,1,MR,4);
     st(wm.getCell(MR,1),`TOTAL  ·  ${r.totalInv} Invoices`,DARK,'FFFFFF',true,10,'right',false,1);
-    for(let c=2;c<=5;c++)bk(wm,MR,c,DARK);
-    st(wm.getCell(MR,6),r.invVal,DARK,'FFFFFF',true,10,'right',false,0,NF);
-    bk(wm,MR,7,DARK); MR+=2;
+    for(let c=2;c<=4;c++)bk(wm,MR,c,DARK);
+    [invValTotal,invTvTotal,invIgTotal,invCgTotal,invSgTotal,invCeTotal].forEach((v,i)=>{
+      st(wm.getCell(MR,i+5),v,DARK,'FFFFFF',true,10,'right',false,0,NF);
+    });
+    MR+=2;
 
-    // ── 4. Late Filing Notes ────────────────────────────────────────────────
+    // ── 4a. Credit Note Invoice-wise Detail ────────────────────────────────
+    if(d && d.cnCount>0){
+      const cnNotes=d.nd.filter(n=>n.noteType.includes('Credit'));
+      sHdr(wm,MR,`  📝  Credit Note Invoice-wise Detail  (${d.cnCount} notes)  —  ${r.label}`,MNC,CND,20); MR++;
+      ['GSTIN of Supplier','Trade Name','Credit Note No.','Note Date','Note Value (₹)','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,CND,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+
+      let cnNvTot=0,cnTvTot=0,cnIgTot=0,cnCgTot=0,cnSgTot=0,cnCeTot=0;
+      cnNotes.forEach((note,i)=>{
+        const alt=i%2===0?CNL:'FFFFFF'; wm.getRow(MR).height=18;
+        [note.gstin,getTradeName(note.gstin),note.noteNo,(note.noteDate||'').trim(),note.noteVal,note.tv,note.igst,note.cgst,note.sgst,note.cess]
+          .forEach((v,ci)=>{
+            const c=wm.getCell(MR,ci+1); c.value=v||null;
+            c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+            c.font={name:'Calibri',size:9,bold:false,color:{argb:argb(CND)}};
+            c.alignment={horizontal:ci>=4?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+            if(ci>=4&&typeof v==='number'&&v)c.numFmt=NF;
+          });
+        cnNvTot+=note.noteVal||0; cnTvTot+=note.tv||0; cnIgTot+=note.igst||0; cnCgTot+=note.cgst||0; cnSgTot+=note.sgst||0; cnCeTot+=note.cess||0;
+        MR++;
+      });
+      // CN total
+      wm.getRow(MR).height=20; wm.mergeCells(MR,1,MR,4);
+      st(wm.getCell(MR,1),`TOTAL  ·  ${d.cnCount} Credit Notes`,CND,'FFFFFF',true,10,'right',false,1);
+      for(let c=2;c<=4;c++)bk(wm,MR,c,CND);
+      [cnNvTot,cnTvTot,cnIgTot,cnCgTot,cnSgTot,cnCeTot].forEach((v,i)=>st(wm.getCell(MR,i+5),v,CND,'FFFFFF',true,10,'right',false,0,NF));
+      MR+=2;
+    }
+
+    // ── 4b. Debit Note Invoice-wise Detail ─────────────────────────────────
+    if(d && d.dnCount>0){
+      const dnNotes=d.nd.filter(n=>n.noteType.includes('Debit'));
+      sHdr(wm,MR,`  📋  Debit Note Invoice-wise Detail  (${d.dnCount} notes)  —  ${r.label}`,MNC,DND,20); MR++;
+      ['GSTIN of Supplier','Trade Name','Debit Note No.','Note Date','Note Value (₹)','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,DND,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+
+      let dnNvTot=0,dnTvTot=0,dnIgTot=0,dnCgTot=0,dnSgTot=0,dnCeTot=0;
+      dnNotes.forEach((note,i)=>{
+        const alt=i%2===0?DNL:'FFFFFF'; wm.getRow(MR).height=18;
+        [note.gstin,getTradeName(note.gstin),note.noteNo,(note.noteDate||'').trim(),note.noteVal,note.tv,note.igst,note.cgst,note.sgst,note.cess]
+          .forEach((v,ci)=>{
+            const c=wm.getCell(MR,ci+1); c.value=v||null;
+            c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+            c.font={name:'Calibri',size:9,bold:false,color:{argb:argb(DND)}};
+            c.alignment={horizontal:ci>=4?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+            if(ci>=4&&typeof v==='number'&&v)c.numFmt=NF;
+          });
+        dnNvTot+=note.noteVal||0; dnTvTot+=note.tv||0; dnIgTot+=note.igst||0; dnCgTot+=note.cgst||0; dnSgTot+=note.sgst||0; dnCeTot+=note.cess||0;
+        MR++;
+      });
+      wm.getRow(MR).height=20; wm.mergeCells(MR,1,MR,4);
+      st(wm.getCell(MR,1),`TOTAL  ·  ${d.dnCount} Debit Notes`,DND,'FFFFFF',true,10,'right',false,1);
+      for(let c=2;c<=4;c++)bk(wm,MR,c,DND);
+      [dnNvTot,dnTvTot,dnIgTot,dnCgTot,dnSgTot,dnCeTot].forEach((v,i)=>st(wm.getCell(MR,i+5),v,DND,'FFFFFF',true,10,'right',false,0,NF));
+      MR+=2;
+    }
+
+    // ── 5. Late Filing Notes ────────────────────────────────────────────────
     sHdr(wm,MR,'  ⚠  Late Filing Notes',MNC,OD,20); MR++;
     if(r.late.length){
       wm.mergeCells(MR,1,MR,MNC);
@@ -831,6 +970,179 @@ async function buildExcel(results, dcnByMonth){
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SHEET: Supplier-wise Annual Purchase Summary
+  // One row per supplier · All months combined · With DCN adjustments
+  // ─────────────────────────────────────────────────────────────────────────
+  const wsp=wb.addWorksheet('Supplier-wise Summary');
+  wsp.views=[{state:'frozen',xSplit:0,ySplit:4}];
+  // Cols: S.No | GSTIN | Trade Name | Invoices | Invoice Value | Taxable Val |
+  //        IGST | CGST | SGST | Cess | Total Tax | Gross Total |
+  //        CN Value | DN Value | Net DCN Adj | Net Taxable | Net Total Tax | Net Grand Total
+  colW(wsp,[5,30,36,7,20,20,14,14,16,10,16,20,16,16,16,20,18,22]);
+  const SNC=18;
+
+  // Title
+  wsp.mergeCells(1,1,1,SNC);
+  st(wsp.getCell(1,1),'GSTR-2A  —  Supplier-wise Annual Purchase Summary  |  FY 2025-26','1F3864','FFFFFF',true,14,'center');
+  wsp.getRow(1).height=34;
+
+  // Subtitle
+  wsp.mergeCells(2,1,2,SNC);
+  st(wsp.getCell(2,1),
+    'All months consolidated per supplier  ·  Purchases include Invoice Value, Tax breakup  ·  Credit / Debit Notes netted  ·  Sorted by Net Grand Total (descending)',
+    '2E75B6','FFFFFF',false,9,'center',true,0,null,true);
+  wsp.getRow(2).height=15;
+
+  // Column header groups (row 3 = group labels, row 4 = column labels)
+  // Group 1: Supplier Info (cols 1-3)
+  wsp.mergeCells(3,1,3,3); st(wsp.getCell(3,1),'SUPPLIER','1F3864','FFFFFF',true,9,'center');
+  for(let c=2;c<=3;c++)wsp.getCell(3,c).border=TB;
+  // Group 2: Purchases (cols 4-12)
+  wsp.mergeCells(3,4,3,12); st(wsp.getCell(3,4),'PURCHASES  (from Invoices)','1F4E79','FFFFFF',true,9,'center');
+  for(let c=5;c<=12;c++)wsp.getCell(3,c).border=TB;
+  // Group 3: DCN (cols 13-15)
+  wsp.mergeCells(3,13,3,15); st(wsp.getCell(3,13),'CREDIT / DEBIT NOTES','7B2C2C','FFFFFF',true,9,'center');
+  for(let c=14;c<=15;c++)wsp.getCell(3,c).border=TB;
+  // Group 4: Net (cols 16-18)
+  wsp.mergeCells(3,16,3,18); st(wsp.getCell(3,16),'NET PURCHASES','375623','FFFFFF',true,9,'center');
+  for(let c=17;c<=18;c++)wsp.getCell(3,c).border=TB;
+  wsp.getRow(3).height=20;
+
+  // Column headers row 4
+  ['S.No','GSTIN','Trade Name','Inv.','Invoice Value (₹)','Taxable Value (₹)',
+   'IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)','Total Tax (₹)','Gross Total (₹)',
+   'Less: CN (₹)','Add: DN (₹)','Net DCN Adj (₹)',
+   'Net Taxable (₹)','Net Total Tax (₹)','Net Grand Total (₹)']
+    .forEach((h,i)=>{
+      const bg=i<=2?'1F3864':i<=11?'2E4E7E':i<=14?'7B2C2C':'375623';
+      st(wsp.getCell(4,i+1),h,bg,'FFFFFF',true,9,'center',true);
+    });
+  wsp.getRow(4).height=28;
+
+  // ── Build per-supplier aggregation ────────────────────────────────────────
+  const supplierMap=new Map(); // key=GSTIN
+
+  results.forEach(r=>{
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    // Aggregate invoices per supplier
+    const invTaxMap=new Map();
+    r.tax.forEach(t=>{
+      const k=t.gstin.trim().toUpperCase();
+      if(!invTaxMap.has(k))invTaxMap.set(k,{tv:0,igst:0,cgst:0,sgst:0,cess:0});
+      const e=invTaxMap.get(k);
+      e.tv+=t.tv;e.igst+=t.igst;e.cgst+=t.cgst;e.sgst+=t.sgst;e.cess+=t.cess;
+    });
+    r.inv.forEach(inv=>{
+      const g=inv.gstin.trim().toUpperCase();
+      if(!supplierMap.has(g))supplierMap.set(g,{gstin:g,invCount:0,invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,cnNv:0,cnTv:0,cnIg:0,cnCg:0,cnSg:0,cnCe:0,dnNv:0,dnTv:0,dnIg:0,dnCg:0,dnSg:0,dnCe:0});
+      const s=supplierMap.get(g);
+      s.invCount++;
+      s.invVal+=inv.iv;
+      const tx=invTaxMap.get(g)||{tv:0,igst:0,cgst:0,sgst:0,cess:0};
+      // We'll accumulate tax separately below from tax list to avoid double-counting
+    });
+    // Accumulate tax per supplier from the deduplicated tax list
+    r.tax.forEach(t=>{
+      const g=t.gstin.trim().toUpperCase();
+      if(!supplierMap.has(g))supplierMap.set(g,{gstin:g,invCount:0,invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,cnNv:0,cnTv:0,cnIg:0,cnCg:0,cnSg:0,cnCe:0,dnNv:0,dnTv:0,dnIg:0,dnCg:0,dnSg:0,dnCe:0});
+      const s=supplierMap.get(g);
+      s.tv+=t.tv;s.igst+=t.igst;s.cgst+=t.cgst;s.sgst+=t.sgst;s.cess+=t.cess;
+    });
+    // Accumulate DCN per supplier
+    if(d){
+      d.nd.forEach(note=>{
+        const g=note.gstin.trim().toUpperCase();
+        if(!supplierMap.has(g))supplierMap.set(g,{gstin:g,invCount:0,invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,cnNv:0,cnTv:0,cnIg:0,cnCg:0,cnSg:0,cnCe:0,dnNv:0,dnTv:0,dnIg:0,dnCg:0,dnSg:0,dnCe:0});
+        const s=supplierMap.get(g);
+        if(note.noteType.includes('Credit')){s.cnNv+=note.noteVal||0;s.cnTv+=note.tv||0;s.cnIg+=note.igst||0;s.cnCg+=note.cgst||0;s.cnSg+=note.sgst||0;s.cnCe+=note.cess||0;}
+        else{s.dnNv+=note.noteVal||0;s.dnTv+=note.tv||0;s.dnIg+=note.igst||0;s.dnCg+=note.cgst||0;s.dnSg+=note.sgst||0;s.dnCe+=note.cess||0;}
+      });
+    }
+  });
+
+  // Sort suppliers by Net Grand Total descending
+  const suppliers=[...supplierMap.values()].map(s=>{
+    const totalTax=s.igst+s.cgst+s.sgst+s.cess;
+    const grossTotal=s.tv+totalTax;
+    const netDcnAdj=(s.dnTv+s.dnIg+s.dnCg+s.dnSg+s.dnCe)-(s.cnTv+s.cnIg+s.cnCg+s.cnSg+s.cnCe);
+    const netTv=s.tv+s.dnTv-s.cnTv;
+    const netIg=s.igst+s.dnIg-s.cnIg,netCg=s.cgst+s.dnCg-s.cnCg;
+    const netSg=s.sgst+s.dnSg-s.cnSg,netCe=s.cess+s.dnCe-s.cnCe;
+    const netTotalTax=netIg+netCg+netSg+netCe;
+    const netGrandTotal=netTv+netTotalTax;
+    const cnTotal=s.cnNv; const dnTotal=s.dnNv;
+    return{...s,totalTax,grossTotal,cnTotal,dnTotal,netDcnAdj,netTv,netIg,netCg,netSg,netCe,netTotalTax,netGrandTotal};
+  }).sort((a,b)=>b.netGrandTotal-a.netGrandTotal);
+
+  // ── Write supplier rows ────────────────────────────────────────────────────
+  let SR=5;
+  const totals={invCount:0,invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,totalTax:0,grossTotal:0,cnTotal:0,dnTotal:0,netDcnAdj:0,netTv:0,netTotalTax:0,netGrandTotal:0};
+
+  suppliers.forEach((s,si)=>{
+    wsp.getRow(SR).height=20;
+    const alt=si%2===0?'EEF3FA':'FFFFFF';
+    const hasDCN=(s.cnTotal>0||s.dnTotal>0);
+    const tradeName=getTradeName(s.gstin);
+
+    const vals=[
+      si+1, s.gstin, tradeName||'',
+      s.invCount, s.invVal, s.tv,
+      s.igst, s.cgst, s.sgst, s.cess, s.totalTax, s.grossTotal,
+      s.cnTotal||null, s.dnTotal||null, s.netDcnAdj||null,
+      s.netTv, s.netTotalTax, s.netGrandTotal
+    ];
+
+    vals.forEach((v,ci)=>{
+      const c=wsp.getCell(SR,ci+1);
+      c.value=v||null;
+      // Background: alternating for data rows, tinted for DCN cols
+      const bgColor=ci>=12&&ci<=14?(si%2===0?'FBF0F0':'FFF5F5'):
+                    ci>=15?(si%2===0?'EFF7EE':'F7FFF6'):alt;
+      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+bgColor.replace('#','')}};
+      // Font color by section
+      const fc=ci>=12&&ci<=14?CND:ci>=15?GD:'1F3864';
+      c.font={name:'Calibri',size:9,bold:ci===2||ci>=15,color:{argb:argb(fc)}};
+      // Alignment
+      c.alignment={
+        horizontal:ci===0?'center':ci===1?'center':ci===2?'left':ci===3?'center':'right',
+        vertical:'middle',
+        wrapText:ci===2  // wrap trade name
+      };
+      c.border=TB;
+      if(ci>=4&&typeof v==='number'&&v)c.numFmt=NF;
+    });
+    SR++;
+
+    // Accumulate totals
+    totals.invCount+=s.invCount; totals.invVal+=s.invVal; totals.tv+=s.tv;
+    totals.igst+=s.igst; totals.cgst+=s.cgst; totals.sgst+=s.sgst; totals.cess+=s.cess;
+    totals.totalTax+=s.totalTax; totals.grossTotal+=s.grossTotal;
+    totals.cnTotal+=s.cnTotal; totals.dnTotal+=s.dnTotal; totals.netDcnAdj+=s.netDcnAdj;
+    totals.netTv+=s.netTv; totals.netTotalTax+=s.netTotalTax; totals.netGrandTotal+=s.netGrandTotal;
+  });
+
+  // ── Grand Total row ────────────────────────────────────────────────────────
+  wsp.getRow(SR).height=26;
+  wsp.mergeCells(SR,1,SR,3);
+  st(wsp.getCell(SR,1),`GRAND TOTAL  ·  ${suppliers.length} Suppliers`,'1F3864','FFFFFF',true,11,'right',false,1);
+  for(let c=2;c<=3;c++)bk(wsp,SR,c,'1F3864');
+  [totals.invCount,totals.invVal,totals.tv,
+   totals.igst,totals.cgst,totals.sgst,totals.cess,totals.totalTax,totals.grossTotal,
+   totals.cnTotal||null,totals.dnTotal||null,totals.netDcnAdj||null,
+   totals.netTv,totals.netTotalTax,totals.netGrandTotal
+  ].forEach((v,i)=>{
+    const ci=i+3; // col 4 onwards
+    const bg=ci>=12&&ci<=14?CND:ci>=15?GD:'1F3864';
+    const c=wsp.getCell(SR,ci+1);
+    c.value=v||null;
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(bg)}};
+    c.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+    c.alignment={horizontal:i===0?'center':'right',vertical:'middle'};
+    c.border=TB;
+    if(i>=1&&typeof v==='number'&&v)c.numFmt=NF;
+  });
+
   // ── Download ──────────────────────────────────────────────────────────────
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -841,9 +1153,10 @@ async function buildExcel(results, dcnByMonth){
 }
 
 // ─── GENERATE ────────────────────────────────────────────────────────────────
+
 async function generate(){
   if(!invFiles.length&&!dcnFiles.length)return;
-  setStatus('info','⏳ Processing all files and building styled Excel…');
+  setStatus('info','⏳ Processing files and fetching trade names — please wait…');
   document.getElementById('gen-btn').disabled=true;
   await new Promise(r=>setTimeout(r,60));
   try{
@@ -867,6 +1180,13 @@ async function generate(){
     dcnByMonth.forEach((entry,key)=>dcnProcessed.set(key,processDCNMonth(entry)));
 
     renderPreview(results,dcnProcessed);
+    // Fetch trade names silently — if server unavailable, columns stay blank
+    const allGstins = [...new Set([
+      ...results.flatMap(r=>[...r.inv.map(i=>i.gstin),...r.tax.map(t=>t.gstin)]),
+      ...Array.from(dcnProcessed.values()).flatMap(d=>[...d.nd.map(n=>n.gstin)])
+    ])];
+    await prefetchTradeNames(allGstins);
+    setStatus('info','⏳ Building styled Excel…');
     await buildExcel(results,dcnProcessed);
     setStatus('success',`✅ Report generated for ${results.length} month(s) with ${dcnProcessed.size} month(s) of DCN data. Downloading…`);
   }catch(err){

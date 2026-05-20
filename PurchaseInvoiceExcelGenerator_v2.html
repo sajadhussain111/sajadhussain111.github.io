@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase Invoice Excel Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --surface3: #2d333b;
+  --border: #30363d;
+  --border2: #444c56;
+  --accent: #f0883e;
+  --accent2: #ffa657;
+  --green: #3fb950;
+  --green-bg: #12261e;
+  --red: #f85149;
+  --red-bg: #2d1217;
+  --blue: #58a6ff;
+  --blue-bg: #12253a;
+  --yellow: #d29922;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --text3: #484f58;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-logo .logo-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.header-logo h1 { font-size: 15px; font-weight: 700; color: var(--text); }
+.header-logo span { font-size: 11px; color: var(--text2); }
+.header-badges { margin-left: auto; display: flex; gap: 8px; }
+.badge {
+  font-size: 10px; font-weight: 600;
+  padding: 3px 8px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge-green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+.badge-orange { background: rgba(240,136,62,0.15); color: var(--accent2); border: 1px solid rgba(240,136,62,0.3); }
+
+/* ── STEP BAR ── */
+.step-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px 14px 0;
+  cursor: default;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  position: relative;
+}
+.step.active { opacity: 1; }
+.step.done { opacity: 0.65; }
+.step-num {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  color: var(--text2);
+  flex-shrink: 0;
+}
+.step.active .step-num { background: var(--accent); border-color: var(--accent); color: white; }
+.step.done .step-num { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.step-label { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.step-arrow { color: var(--text3); margin-right: 20px; font-size: 12px; }
+
+/* ── MAIN CONTENT ── */
+.main { flex: 1; padding: 32px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+/* ── UPLOAD ZONE ── */
+.upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.upload-card {
+  background: var(--surface);
+  border: 2px dashed var(--border2);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.upload-card:hover { border-color: var(--accent); background: var(--surface2); }
+.upload-card.has-file { border-style: solid; border-color: var(--green); background: var(--green-bg); }
+.upload-card.dragover { border-color: var(--accent); background: rgba(240,136,62,0.1); }
+.upload-icon { font-size: 36px; margin-bottom: 12px; }
+.upload-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.upload-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.upload-filename {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--green);
+  font-family: var(--mono);
+  background: rgba(63,185,80,0.1);
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.upload-card input[type=file] { display: none; }
+.upload-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+  text-transform: uppercase;
+}
+.req-badge { background: rgba(240,136,62,0.2); color: var(--accent2); }
+.ok-badge { background: var(--green-bg); color: var(--green); }
+
+/* ── COLUMN MAP ── */
+.colmap-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.colmap-header {
+  background: var(--surface2);
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.colmap-header h3 { font-size: 13px; font-weight: 700; }
+.colmap-header .status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--yellow);
+}
+.colmap-header .status-dot.ok { background: var(--green); }
+.colmap-body { padding: 20px; }
+.colmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.colmap-field label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+.colmap-field label span.req { color: var(--red); }
+.colmap-select {
+  width: 100%;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b949e'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.colmap-select:focus { border-color: var(--accent); }
+.colmap-select.mapped { border-color: var(--green); }
+.colmap-select.unmapped { border-color: var(--red); }
+
+/* ── DATA PREVIEW ── */
+.preview-table-wrap { overflow-x: auto; margin-top: 12px; }
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+.preview-table th {
+  background: var(--surface3);
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--text2);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.preview-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-table tr:hover td { background: var(--surface2); }
+
+/* ── DIFF TABLE ── */
+.diff-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.diff-header {
+  background: rgba(240,136,62,0.1);
+  border-bottom: 1px solid rgba(240,136,62,0.3);
+  padding: 14px 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.diff-header h3 { font-size: 13px; font-weight: 700; color: var(--accent2); }
+.diff-body { padding: 0; }
+.diff-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.diff-table thead th {
+  background: var(--surface2);
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+.diff-table thead th.right { text-align: right; }
+.diff-table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.diff-table tbody td.right { text-align: right; font-family: var(--mono); }
+.diff-table tbody td.mono { font-family: var(--mono); }
+.diff-plus { color: var(--green); font-weight: 700; }
+.diff-minus { color: var(--red); font-weight: 700; }
+.diff-input {
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  min-width: 180px;
+}
+.diff-input:focus { border-color: var(--accent); }
+.diff-select {
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 6px 28px 6px 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b949e'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  width: 100%;
+  min-width: 150px;
+}
+.diff-select:focus { border-color: var(--accent); }
+
+/* ── DIFF TOGGLE ── */
+.diff-toggle-wrap { display: flex; align-items: center; gap: 8px; }
+.diff-toggle {
+  position: relative; width: 40px; height: 22px;
+  display: inline-block; flex-shrink: 0;
+}
+.diff-toggle input { opacity: 0; width: 0; height: 0; }
+.diff-toggle-slider {
+  position: absolute; cursor: pointer;
+  inset: 0; border-radius: 22px;
+  background: var(--surface3); border: 1px solid var(--border2);
+  transition: 0.2s;
+}
+.diff-toggle-slider::before {
+  content: ''; position: absolute;
+  width: 16px; height: 16px; border-radius: 50%;
+  left: 2px; top: 2px;
+  background: var(--text3);
+  transition: 0.2s;
+}
+.diff-toggle input:checked + .diff-toggle-slider { background: var(--green); border-color: var(--green); }
+.diff-toggle input:checked + .diff-toggle-slider::before { transform: translateX(18px); background: white; }
+.diff-toggle-label { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.diff-toggle-label.on { color: var(--green); }
+.diff-toggle-label.off { color: var(--text3); }
+
+/* ── INFO BOX ── */
+.info-box {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--blue-bg);
+  border: 1px solid rgba(88,166,255,0.3);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--blue);
+  line-height: 1.6;
+}
+.info-box .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.warn-box {
+  background: rgba(210,153,34,0.1);
+  border-color: rgba(210,153,34,0.3);
+  color: var(--yellow);
+}
+.success-box {
+  background: var(--green-bg);
+  border-color: rgba(63,185,80,0.3);
+  color: var(--green);
+}
+
+/* ── BUTTONS ── */
+.btn-row { display: flex; gap: 12px; align-items: center; margin-top: 24px; flex-wrap: wrap; }
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover:not(:disabled) { background: var(--accent2); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+.btn-secondary:hover:not(:disabled) { background: var(--surface3); border-color: var(--accent); }
+.btn-green { background: var(--green); color: #0d1117; }
+.btn-green:hover:not(:disabled) { opacity: 0.85; }
+.btn-big { padding: 14px 28px; font-size: 14px; border-radius: 10px; }
+
+/* ── SUMMARY CARDS ── */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.summary-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.summary-card .sv { font-size: 22px; font-weight: 700; color: var(--text); font-family: var(--mono); }
+.summary-card .sk { font-size: 11px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.summary-card.accent-card { border-color: rgba(240,136,62,0.4); background: rgba(240,136,62,0.08); }
+.summary-card.accent-card .sv { color: var(--accent2); }
+
+/* ── PROGRESS ── */
+.progress-bar-wrap {
+  background: var(--surface3);
+  border-radius: 6px;
+  height: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 6px;
+  transition: width 0.3s;
+}
+.progress-text { font-size: 12px; color: var(--text2); }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 4px; margin-bottom: 16px; width: fit-content; }
+.tab-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  transition: all 0.15s;
+}
+.tab-btn.active { background: var(--surface3); color: var(--text); }
+
+/* ── HIDDEN ── */
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+/* ── SPINNER ── */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.section-title { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; margin-top: 24px; display: flex; align-items: center; gap: 8px; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+hr-sep { border: none; border-top: 1px solid var(--border); margin: 24px 0; display: block; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <h1>Purchase Invoice Excel Generator</h1>
+      <span>Upload → Map → Resolve → Export</span>
+    </div>
+  </div>
+  <div class="header-badges">
+    <span class="badge badge-green">GST Compliant</span>
+    <span class="badge badge-orange">GSTR-2B Ready</span>
+  </div>
+</div>
+
+<!-- STEP BAR -->
+<div class="step-bar">
+  <div class="step active" id="stepIndicator1">
+    <div class="step-num">1</div>
+    <div class="step-label">Upload Files</div>
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step" id="stepIndicator2">
+    <div class="step-num">2</div>
+    <div class="step-label">Map Columns</div>
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step" id="stepIndicator3">
+    <div class="step-num">3</div>
+    <div class="step-label">Resolve Differences</div>
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step" id="stepIndicator4">
+    <div class="step-num">4</div>
+    <div class="step-label">Export Excel</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="step-panel active" id="panel1">
+    <div class="info-box">
+      <span class="icon">ℹ️</span>
+      <div>Upload your <strong>Items List</strong> (with Item Name, Tax Rate %, Price columns) and your <strong>Purchases file</strong> (GSTR-2B or similar with Supplier GSTIN, Party Name, Invoice No, Date, Taxable Value, GST Rate, Tax amounts). Accepts <strong>.xlsx</strong> or <strong>.xls</strong> files.</div>
+    </div>
+    <div class="upload-grid">
+      <!-- Items File -->
+      <label class="upload-card" id="itemsCard" for="itemsFileInput" ondragover="onDragOver(event,'itemsCard')" ondragleave="onDragLeave(event,'itemsCard')" ondrop="onDrop(event,'items')">
+        <span class="upload-badge req-badge" id="itemsBadge">Required</span>
+        <div class="upload-icon">🗂️</div>
+        <div class="upload-title">Items List</div>
+        <div class="upload-desc">Excel file with your inventory items.<br>Must have: <strong>Item Name, Tax Rate %, Price</strong> columns.<br>Can have company header rows at top — auto-detected.</div>
+        <input type="file" id="itemsFileInput" accept=".xlsx,.xls" onchange="handleFile(event,'items')">
+        <div class="upload-filename" id="itemsFileName" style="display:none"></div>
+      </label>
+      <!-- Purchases File -->
+      <label class="upload-card" id="purchasesCard" for="purchasesFileInput" ondragover="onDragOver(event,'purchasesCard')" ondragleave="onDragLeave(event,'purchasesCard')" ondrop="onDrop(event,'purchases')">
+        <span class="upload-badge req-badge" id="purchasesBadge">Required</span>
+        <div class="upload-icon">📋</div>
+        <div class="upload-title">Purchase Details</div>
+        <div class="upload-desc">GSTR-2B export or similar purchase register.<br>Must have: <strong>GSTIN, Party Name, Invoice No, Date, GST Rate %, Taxable Value, CGST/SGST</strong> columns.</div>
+        <input type="file" id="purchasesFileInput" accept=".xlsx,.xls" onchange="handleFile(event,'purchases')">
+        <div class="upload-filename" id="purchasesFileName" style="display:none"></div>
+      </label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="proceedBtn" onclick="proceedToMap()" disabled>
+        Proceed to Column Mapping →
+      </button>
+      <span style="font-size:12px;color:var(--text2)">Both files required to continue</span>
+    </div>
+  </div>
+
+  <!-- STEP 2: COLUMN MAP -->
+  <div class="step-panel" id="panel2">
+    <div class="info-box">
+      <span class="icon">🔧</span>
+      <div>The tool has <strong>auto-detected</strong> your column positions. Review the mappings below and correct any mismatches using the dropdowns. Green border = mapped, Red = unmapped (required).</div>
+    </div>
+
+    <!-- Items column map -->
+    <div class="colmap-card">
+      <div class="colmap-header">
+        <div class="status-dot" id="itemsMapDot"></div>
+        <h3>Items File — Column Mapping</h3>
+        <span style="margin-left:auto;font-size:11px;color:var(--text2)" id="itemsRowCount"></span>
+      </div>
+      <div class="colmap-body">
+        <div class="colmap-grid">
+          <div class="colmap-field">
+            <label>Item Name <span class="req">*</span></label>
+            <select class="colmap-select" id="map_item_name" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Tax Rate (%) <span class="req">*</span></label>
+            <select class="colmap-select" id="map_item_rate" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Unit Price <span class="req">*</span></label>
+            <select class="colmap-select" id="map_item_price" onchange="updateMapping()"></select>
+          </div>
+        </div>
+        <div class="section-title" style="margin-top:16px">Data Preview (first 5 rows)</div>
+        <div class="preview-table-wrap" id="itemsPreview"></div>
+      </div>
+    </div>
+
+    <!-- Purchases column map -->
+    <div class="colmap-card">
+      <div class="colmap-header">
+        <div class="status-dot" id="purchasesMapDot"></div>
+        <h3>Purchases File — Column Mapping</h3>
+        <span style="margin-left:auto;font-size:11px;color:var(--text2)" id="purchasesRowCount"></span>
+      </div>
+      <div class="colmap-body">
+        <div class="colmap-grid">
+          <div class="colmap-field">
+            <label>Supplier GSTIN</label>
+            <select class="colmap-select" id="map_gstin" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Party / Trade Name <span class="req">*</span></label>
+            <select class="colmap-select" id="map_party" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Invoice Number <span class="req">*</span></label>
+            <select class="colmap-select" id="map_inv_no" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Invoice Date <span class="req">*</span></label>
+            <select class="colmap-select" id="map_inv_date" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Invoice Value (Total) <span class="req">*</span></label>
+            <select class="colmap-select" id="map_inv_value" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>GST Rate % <span class="req">*</span></label>
+            <select class="colmap-select" id="map_gst_rate" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Taxable Value <span class="req">*</span></label>
+            <select class="colmap-select" id="map_taxable" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>CGST Amount</label>
+            <select class="colmap-select" id="map_cgst" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>SGST Amount</label>
+            <select class="colmap-select" id="map_sgst" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>IGST Amount</label>
+            <select class="colmap-select" id="map_igst" onchange="updateMapping()"></select>
+          </div>
+          <div class="colmap-field">
+            <label>Cess Amount</label>
+            <select class="colmap-select" id="map_cess" onchange="updateMapping()"></select>
+          </div>
+        </div>
+        <div class="section-title" style="margin-top:16px">Data Preview (first 5 rows)</div>
+        <div class="preview-table-wrap" id="purchasesPreview"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
+      <button class="btn btn-primary" id="proceedToDiffBtn" onclick="proceedToDiff()" disabled>
+        Process Invoices →
+      </button>
+      <div id="mapStatus" style="font-size:12px;color:var(--text2)"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: DIFFERENCES -->
+  <div class="step-panel" id="panel3">
+    <div id="diffIntro"></div>
+
+    <div id="diffTableArea"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(2)">← Back</button>
+      <button class="btn btn-green btn-big" id="generateBtn" onclick="generateExcel()">
+        ⬇️ Generate Excel File
+      </button>
+      <span id="generateStatus" style="font-size:12px;color:var(--text2)"></span>
+    </div>
+  </div>
+
+  <!-- STEP 4: DONE -->
+  <div class="step-panel" id="panel4">
+    <div class="success-box info-box">
+      <span class="icon">✅</span>
+      <div id="doneMsg">Excel file generated successfully!</div>
+    </div>
+    <div class="summary-grid" id="doneSummary"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-big" id="downloadAgainBtn" onclick="triggerDownload()">⬇️ Download Again</button>
+      <button class="btn btn-secondary" onclick="resetTool()">🔄 Start Over / New Upload</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let state = {
+  itemsRaw: null,      // 2D array from xlsx
+  purchasesRaw: null,  // 2D array from xlsx
+  itemsHeaderRow: -1,
+  purchasesHeaderRow: -1,
+  itemsColumns: [],    // column header names
+  purchasesColumns: [],
+  itemsData: [],       // parsed [{name, rate, price}]
+  invoices: [],        // grouped invoice objects
+  differences: [],     // invoices where |diff|>10
+  includeDiff: [],     // per-invoice boolean: whether to add diff row
+  lastWorkbook: null,  // for download
+};
+
+// ═══════════════════════════════════════════════
+//  FILE HANDLING
+// ═══════════════════════════════════════════════
+function onDragOver(e, cardId) {
+  e.preventDefault();
+  document.getElementById(cardId).classList.add('dragover');
+}
+function onDragLeave(e, cardId) {
+  document.getElementById(cardId).classList.remove('dragover');
+}
+function onDrop(e, type) {
+  e.preventDefault();
+  const card = type === 'items' ? 'itemsCard' : 'purchasesCard';
+  document.getElementById(card).classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processUploadedFile(file, type);
+}
+
+function handleFile(e, type) {
+  const file = e.target.files[0];
+  if (file) processUploadedFile(file, type);
+}
+
+function processUploadedFile(file, type) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (type === 'items') {
+        state.itemsRaw = data;
+        document.getElementById('itemsFileName').textContent = '✓ ' + file.name;
+        document.getElementById('itemsFileName').style.display = 'inline-block';
+        document.getElementById('itemsCard').classList.add('has-file');
+        document.getElementById('itemsBadge').textContent = 'Loaded';
+        document.getElementById('itemsBadge').className = 'upload-badge ok-badge';
+      } else {
+        state.purchasesRaw = data;
+        document.getElementById('purchasesFileName').textContent = '✓ ' + file.name;
+        document.getElementById('purchasesFileName').style.display = 'inline-block';
+        document.getElementById('purchasesCard').classList.add('has-file');
+        document.getElementById('purchasesBadge').textContent = 'Loaded';
+        document.getElementById('purchasesBadge').className = 'upload-badge ok-badge';
+      }
+      document.getElementById('proceedBtn').disabled = !(state.itemsRaw && state.purchasesRaw);
+    } catch(err) {
+      alert('Error reading file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 1 → 2
+// ═══════════════════════════════════════════════
+function proceedToMap() {
+  detectAndSetupMapping();
+  goToStep(2);
+}
+
+function detectAndSetupMapping() {
+  // ── Items file ──
+  const { headerRow: iHdr, colMap: iMap } = detectHeaderRow(state.itemsRaw, [
+    ['item_name', ['item name','item','name','description','product','article','goods']],
+    ['item_rate', ['tax rate','rate','gst rate','gst%','rate%','tax%','%','gst','hsn rate']],
+    ['item_price', ['price','mrp','rate','unit price','basic price','cost','amount']],
+  ]);
+  state.itemsHeaderRow = iHdr;
+  state.itemsColumns = iHdr >= 0 ? state.itemsRaw[iHdr].map((c,i) => ({ label: String(c||'').trim() || `Col ${i+1}`, idx: i })) : [];
+
+  // ── Purchases file ──
+  const { headerRow: pHdr, colMap: pMap } = detectHeaderRow(state.purchasesRaw, [
+    ['gstin', ['gstin','gst no','gst number','supplier gstin','gstin of supplier']],
+    ['party', ['party','trade','legal name','trade/legal','supplier name','vendor','party name']],
+    ['inv_no', ['invoice number','invoice no','inv no','inv','bill no','bill number','invoice']],
+    ['inv_date', ['invoice date','date','bill date','inv date']],
+    ['inv_value', ['invoice value','total value','invoice amount','total amount','grand total','bill amount','invoice value(₹)','invoice value(rs)']],
+    ['gst_rate', ['rate(%)','rate %','gst rate','tax rate','rate','%']],
+    ['taxable', ['taxable value','taxable amount','taxable','basic amount','taxable value (₹)']],
+    ['cgst', ['central tax','cgst','cgst amount']],
+    ['sgst', ['state/ut tax','sgst','sgst amount','state tax']],
+    ['igst', ['integrated tax','igst','igst amount']],
+    ['cess', ['cess','cess amount']],
+  ]);
+  state.purchasesHeaderRow = pHdr;
+  state.purchasesColumns = pHdr >= 0 ? state.purchasesRaw[pHdr].map((c,i) => ({ label: String(c||'').trim() || `Col ${i+1}`, idx: i })) : [];
+
+  // Populate dropdowns
+  populateDropdowns('item', state.itemsColumns, iMap, ['map_item_name','map_item_rate','map_item_price']);
+  populateDropdowns('purchase', state.purchasesColumns, pMap, ['map_gstin','map_party','map_inv_no','map_inv_date','map_inv_value','map_gst_rate','map_taxable','map_cgst','map_sgst','map_igst','map_cess']);
+
+  // Show row counts
+  const iDataRows = state.itemsRaw.length - (state.itemsHeaderRow + 1);
+  const pDataRows = state.purchasesRaw.length - (state.purchasesHeaderRow + 1);
+  document.getElementById('itemsRowCount').textContent = `${iDataRows} data rows detected`;
+  document.getElementById('purchasesRowCount').textContent = `${pDataRows} data rows detected`;
+
+  renderPreviews();
+  updateMapping();
+}
+
+function detectHeaderRow(data, fieldKeywords) {
+  let bestRow = -1, bestScore = 0;
+  const colMap = {};
+
+  for (let r = 0; r < Math.min(data.length, 20); r++) {
+    const row = data[r].map(c => String(c||'').toLowerCase().trim());
+    let score = 0;
+    const tempMap = {};
+    for (const [field, keywords] of fieldKeywords) {
+      for (let ci = 0; ci < row.length; ci++) {
+        const cell = row[ci];
+        if (keywords.some(kw => cell.includes(kw))) {
+          score++;
+          if (!tempMap[field]) tempMap[field] = ci;
+          break;
+        }
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestRow = r;
+      Object.assign(colMap, tempMap);
+    }
+  }
+  return { headerRow: bestRow, colMap };
+}
+
+function populateDropdowns(type, columns, colMap, dropdownIds) {
+  const fieldKeys = {
+    'map_item_name': 'item_name', 'map_item_rate': 'item_rate', 'map_item_price': 'item_price',
+    'map_gstin': 'gstin', 'map_party': 'party', 'map_inv_no': 'inv_no', 'map_inv_date': 'inv_date',
+    'map_inv_value': 'inv_value', 'map_gst_rate': 'gst_rate', 'map_taxable': 'taxable',
+    'map_cgst': 'cgst', 'map_sgst': 'sgst', 'map_igst': 'igst', 'map_cess': 'cess',
+  };
+
+  for (const id of dropdownIds) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="-1">(Not Mapped)</option>';
+    for (const col of columns) {
+      const opt = document.createElement('option');
+      opt.value = col.idx;
+      opt.textContent = col.label || `Column ${col.idx + 1}`;
+      sel.appendChild(opt);
+    }
+    const field = fieldKeys[id];
+    if (colMap[field] !== undefined) {
+      sel.value = colMap[field];
+    }
+  }
+}
+
+function renderPreviews() {
+  renderPreview('itemsPreview', state.itemsRaw, state.itemsHeaderRow);
+  renderPreview('purchasesPreview', state.purchasesRaw, state.purchasesHeaderRow);
+}
+
+function renderPreview(containerId, data, headerRow) {
+  if (!data || headerRow < 0) return;
+  const headers = data[headerRow];
+  const rows = data.slice(headerRow + 1, headerRow + 6).filter(r => r.some(c => c !== ''));
+  let html = '<table class="preview-table"><thead><tr>';
+  headers.forEach(h => { html += `<th>${escH(String(h||''))}</th>`; });
+  html += '</tr></thead><tbody>';
+  rows.forEach(row => {
+    html += '<tr>';
+    headers.forEach((_, i) => { html += `<td title="${escH(String(row[i]||''))}">${escH(String(row[i]||'').substring(0,30))}</td>`; });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
+function updateMapping() {
+  const iReq = ['map_item_name','map_item_rate','map_item_price'].every(id => document.getElementById(id).value !== '-1');
+  const pReq = ['map_party','map_inv_no','map_inv_date','map_inv_value','map_gst_rate','map_taxable'].every(id => document.getElementById(id).value !== '-1');
+
+  ['map_item_name','map_item_rate','map_item_price'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.className = 'colmap-select ' + (sel.value !== '-1' ? 'mapped' : 'unmapped');
+  });
+  ['map_gstin','map_party','map_inv_no','map_inv_date','map_inv_value','map_gst_rate','map_taxable','map_cgst','map_sgst','map_igst','map_cess'].forEach(id => {
+    const sel = document.getElementById(id);
+    const required = ['map_party','map_inv_no','map_inv_date','map_inv_value','map_gst_rate','map_taxable'].includes(id);
+    sel.className = 'colmap-select ' + (sel.value !== '-1' ? 'mapped' : required ? 'unmapped' : '');
+  });
+
+  document.getElementById('itemsMapDot').className = 'status-dot ' + (iReq ? 'ok' : '');
+  document.getElementById('purchasesMapDot').className = 'status-dot ' + (pReq ? 'ok' : '');
+  document.getElementById('proceedToDiffBtn').disabled = !(iReq && pReq);
+  document.getElementById('mapStatus').textContent = (iReq && pReq) ? '✓ All required fields mapped' : 'Complete required (*) fields';
+}
+
+// ═══════════════════════════════════════════════
+//  PARSE DATA
+// ═══════════════════════════════════════════════
+function parseItems() {
+  const nameIdx = parseInt(document.getElementById('map_item_name').value);
+  const rateIdx = parseInt(document.getElementById('map_item_rate').value);
+  const priceIdx = parseInt(document.getElementById('map_item_price').value);
+  const data = state.itemsRaw;
+  const items = [];
+  for (let r = state.itemsHeaderRow + 1; r < data.length; r++) {
+    const row = data[r];
+    const name = String(row[nameIdx]||'').trim();
+    const rate = parseFloat(row[rateIdx]);
+    const price = parseFloat(row[priceIdx]);
+    if (name && !isNaN(rate) && !isNaN(price) && price > 0) {
+      items.push({ name, rate, price: Math.round(price * 100) / 100 });
+    }
+  }
+  return items;
+}
+
+function getV(row, idx) { return idx >= 0 && idx < row.length ? row[idx] : ''; }
+function getN(row, idx) { const v = parseFloat(getV(row, idx)); return isNaN(v) ? 0 : Math.round(v * 100) / 100; }
+
+function parseInvoices() {
+  const g = id => parseInt(document.getElementById(id).value);
+  const gstinIdx = g('map_gstin');
+  const partyIdx = g('map_party');
+  const invNoIdx = g('map_inv_no');
+  const invDateIdx = g('map_inv_date');
+  const invValIdx = g('map_inv_value');
+  const rateIdx = g('map_gst_rate');
+  const taxableIdx = g('map_taxable');
+  const cgstIdx = g('map_cgst');
+  const sgstIdx = g('map_sgst');
+  const igstIdx = g('map_igst');
+  const cessIdx = g('map_cess');
+
+  const data = state.purchasesRaw;
+  const invMap = new Map();
+
+  for (let r = state.purchasesHeaderRow + 1; r < data.length; r++) {
+    const row = data[r];
+    const gstin = String(getV(row, gstinIdx)||'').trim();
+    const party = String(getV(row, partyIdx)||'').trim();
+    const invNo = String(getV(row, invNoIdx)||'').trim();
+    const invDate = String(getV(row, invDateIdx)||'').trim();
+    const invVal = getN(row, invValIdx);
+    const gstRate = getN(row, rateIdx);
+    const taxable = getN(row, taxableIdx);
+    const cgst = getN(row, cgstIdx);
+    const sgst = getN(row, sgstIdx);
+    const igst = getN(row, igstIdx);
+    const cess = getN(row, cessIdx);
+
+    if (!party || !invNo) continue;
+    if (taxable === 0 && gstRate === 0 && cgst === 0 && sgst === 0) continue; // skip total-zero rows unless there's something
+
+    const key = gstin + '||' + invNo;
+    if (!invMap.has(key)) {
+      invMap.set(key, { gstin, party, invNo, invDate, invVal, rows: [] });
+    }
+    invMap.get(key).rows.push({ gstRate, taxable, cgst, sgst, igst, cess });
+  }
+
+  return Array.from(invMap.values());
+}
+
+// ═══════════════════════════════════════════════
+//  ITEM GENERATION
+// ═══════════════════════════════════════════════
+function generateLineItems(targetTaxable, rate, allItems) {
+  if (targetTaxable === 0) return [];
+
+  const rateItems = allItems.filter(i => i.rate === rate);
+
+  if (rateItems.length === 0) {
+    const genericName = rate === 0 ? 'Exempt / Zero-rated Goods' :
+                        rate === 28 ? 'Goods @ 28% GST' :
+                        `Goods @ ${rate}% GST`;
+    const genericPrice = targetTaxable > 5000
+      ? Math.round(targetTaxable / (Math.floor(Math.random() * 5) + 3) * 100) / 100
+      : Math.round(targetTaxable / 2 * 100) / 100;
+    const qty = Math.round(targetTaxable / genericPrice * 100) / 100;
+    return [{ name: genericName, price: genericPrice > 0 ? genericPrice : targetTaxable, qty, amount: targetTaxable, rate }];
+  }
+
+  if (targetTaxable < 100) {
+    const item = rateItems[Math.floor(Math.random() * rateItems.length)];
+    const qty = Math.round(targetTaxable / item.price * 100) / 100;
+    return [{ name: item.name, price: item.price, qty, amount: targetTaxable, rate }];
+  }
+
+  const shuffled = [...rateItems].sort(() => Math.random() - 0.5);
+  const numItems = Math.min(Math.floor(Math.random() * 5) + 3, shuffled.length);
+  const selected = shuffled.slice(0, numItems);
+
+  const result = [];
+  let remaining = Math.round(targetTaxable * 100) / 100;
+
+  for (let i = 0; i < selected.length - 1; i++) {
+    if (remaining < 0.5) break;
+    const item = selected[i];
+    const reserve = Math.max(targetTaxable * 0.15, item.price);
+    const canUse = remaining - reserve;
+    if (canUse < item.price) continue;
+
+    const maxQty = Math.min(Math.max(1, Math.floor(canUse / item.price)), 20);
+    const qty = Math.floor(Math.random() * maxQty) + 1;
+    const amount = Math.round(qty * item.price * 100) / 100;
+    result.push({ name: item.name, price: item.price, qty, amount, rate });
+    remaining = Math.round((remaining - amount) * 100) / 100;
+  }
+
+  if (remaining > 0.001) {
+    const last = selected[selected.length - 1];
+    const qty = Math.round(remaining / last.price * 100) / 100;
+    result.push({ name: last.name, price: last.price, qty, amount: remaining, rate });
+  }
+
+  return result;
+}
+
+// ═══════════════════════════════════════════════
+//  STEP 2 → 3
+// ═══════════════════════════════════════════════
+function proceedToDiff() {
+  state.itemsData = parseItems();
+  state.invoices = parseInvoices();
+
+  if (state.itemsData.length === 0) { alert('No valid items found in items file. Check column mapping.'); return; }
+  if (state.invoices.length === 0) { alert('No valid invoices found in purchases file. Check column mapping.'); return; }
+
+  // Find differences
+  state.differences = [];
+  state.includeDiff = [];
+  for (const inv of state.invoices) {
+    const sumTaxable = inv.rows.reduce((s, r) => s + r.taxable, 0);
+    const sumTax = inv.rows.reduce((s, r) => s + r.cgst + r.sgst + r.igst + r.cess, 0);
+    const calcTotal = Math.round((sumTaxable + sumTax) * 100) / 100;
+    const diff = Math.round((inv.invVal - calcTotal) * 100) / 100;
+    inv._calcTotal = calcTotal;
+    inv._diff = diff;
+    if (Math.abs(diff) > 10) {
+      state.differences.push(inv);
+      state.includeDiff.push(true); // default: include diff row
+    }
+  }
+
+  renderDiffStep();
+  goToStep(3);
+}
+
+function renderDiffStep() {
+  const introEl = document.getElementById('diffIntro');
+  const tableEl = document.getElementById('diffTableArea');
+
+  const totalInv = state.invoices.length;
+  const diffCount = state.differences.length;
+  const igstCount = state.invoices.filter(inv => inv.rows.some(r => r.igst > 0)).length;
+  const igstNotice = igstCount > 0
+    ? `<div class="info-box" style="margin-bottom:12px">
+        <span class="icon">🗂️</span>
+        <div><strong>${igstCount} inter-state invoice(s)</strong> with IGST detected. These will be placed at the <strong>end of the Excel sheet</strong> (after all CGST+SGST invoices) with a blue highlight and a separator row, so you can easily distinguish outside-state purchases.</div>
+      </div>`
+    : '';
+
+  if (diffCount === 0) {
+    introEl.innerHTML = `
+      ${igstNotice}
+      <div class="info-box success-box">
+        <span class="icon">✅</span>
+        <div>All <strong>${totalInv} invoices</strong> are balanced — no significant differences found. Ready to generate Excel!</div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-card"><div class="sv">${totalInv}</div><div class="sk">Total Invoices</div></div>
+        <div class="summary-card"><div class="sv">${state.itemsData.length}</div><div class="sk">Items in List</div></div>
+        <div class="summary-card accent-card"><div class="sv">0</div><div class="sk">With Differences</div></div>
+      </div>`;
+    tableEl.innerHTML = '';
+  } else {
+    introEl.innerHTML = `
+      ${igstNotice}
+      <div class="info-box warn-box">
+        <span class="icon">⚠️</span>
+        <div><strong>${diffCount} invoice(s)</strong> out of ${totalInv} have a difference greater than ±₹10 between the Invoice Value and (Taxable + Tax). Please provide a description for each difference so it can be added as a separate line in the Excel output.</div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-card"><div class="sv">${totalInv}</div><div class="sk">Total Invoices</div></div>
+        <div class="summary-card"><div class="sv">${state.itemsData.length}</div><div class="sk">Items in List</div></div>
+        <div class="summary-card accent-card"><div class="sv">${diffCount}</div><div class="sk">Need Attention</div></div>
+      </div>`;
+
+    let rows = '';
+    state.differences.forEach((inv, idx) => {
+      const diffClass = inv._diff > 0 ? 'diff-plus' : 'diff-minus';
+      const diffSign = inv._diff > 0 ? '+' : '';
+      rows += `
+        <tr id="diffRow_${idx}">
+          <td class="mono">${inv.invNo}</td>
+          <td>${inv.party}</td>
+          <td class="mono">${inv.invDate}</td>
+          <td class="right mono">${fmt(inv.invVal)}</td>
+          <td class="right mono">${fmt(inv._calcTotal)}</td>
+          <td class="right mono ${diffClass}">${diffSign}${fmt(inv._diff)}</td>
+          <td>
+            <select class="diff-select" id="diffType_${idx}" onchange="updateDiffDesc(${idx})">
+              <option value="Freight Charges">Freight / Transport</option>
+              <option value="Loading / Unloading Charges">Loading / Unloading</option>
+              <option value="Packing Charges">Packing Charges</option>
+              <option value="Round Off">Round Off</option>
+              <option value="Discount">Discount / Rebate</option>
+              <option value="Other Charges">Other Charges</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </td>
+          <td>
+            <input class="diff-input" id="diffCustom_${idx}" placeholder="Custom description" style="display:none" oninput="updateDiffDesc(${idx})">
+          </td>
+          <td>
+            <div class="diff-toggle-wrap">
+              <label class="diff-toggle">
+                <input type="checkbox" id="diffInclude_${idx}" checked onchange="updateDiffInclude(${idx})">
+                <span class="diff-toggle-slider"></span>
+              </label>
+              <span class="diff-toggle-label on" id="diffIncludeLabel_${idx}">Include</span>
+            </div>
+          </td>
+        </tr>`;
+    });
+
+    tableEl.innerHTML = `
+      <div class="diff-card">
+        <div class="diff-header">
+          <span style="font-size:16px">⚡</span>
+          <h3>Invoices With Differences (|diff| > ₹10)</h3>
+        </div>
+        <div class="diff-body">
+          <table class="diff-table">
+            <thead>
+              <tr>
+                <th>Invoice No.</th>
+                <th>Party Name</th>
+                <th>Date</th>
+                <th class="right">Invoice Value (₹)</th>
+                <th class="right">Taxable + Tax (₹)</th>
+                <th class="right">Difference (₹)</th>
+                <th>Difference Type</th>
+                <th>Custom Description</th>
+                <th>
+                  Add Diff Row?
+                  <div style="margin-top:4px;display:flex;gap:6px">
+                    <button onclick="setAllDiffInclusion(true)"  style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--green);background:var(--green-bg);color:var(--green);cursor:pointer;font-family:inherit;font-weight:600">All ✓</button>
+                    <button onclick="setAllDiffInclusion(false)" style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--border2);background:var(--surface3);color:var(--text2);cursor:pointer;font-family:inherit;font-weight:600">None ✗</button>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+}
+
+function updateDiffDesc(idx) {
+  const sel = document.getElementById('diffType_' + idx);
+  const custom = document.getElementById('diffCustom_' + idx);
+  custom.style.display = sel.value === 'custom' ? 'block' : 'none';
+}
+
+function updateDiffInclude(idx) {
+  const cb = document.getElementById('diffInclude_' + idx);
+  const label = document.getElementById('diffIncludeLabel_' + idx);
+  const row = document.getElementById('diffRow_' + idx);
+  state.includeDiff[idx] = cb.checked;
+  if (cb.checked) {
+    label.textContent = 'Include';
+    label.className = 'diff-toggle-label on';
+    row.style.opacity = '1';
+  } else {
+    label.textContent = 'Exclude';
+    label.className = 'diff-toggle-label off';
+    row.style.opacity = '0.5';
+  }
+}
+
+function setAllDiffInclusion(val) {
+  state.differences.forEach((_, idx) => {
+    const cb = document.getElementById('diffInclude_' + idx);
+    if (cb) { cb.checked = val; updateDiffInclude(idx); }
+  });
+}
+
+function getDiffDesc(idx) {
+  const sel = document.getElementById('diffType_' + idx);
+  if (sel.value === 'custom') {
+    return document.getElementById('diffCustom_' + idx).value || 'Other Charges';
+  }
+  return sel.value;
+}
+
+// ═══════════════════════════════════════════════
+//  EXCEL GENERATION
+// ═══════════════════════════════════════════════
+function generateExcel() {
+  const btn = document.getElementById('generateBtn');
+  const status = document.getElementById('generateStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generating…';
+  status.textContent = '';
+
+  setTimeout(() => {
+    try {
+      const rows = buildExcelRows();
+      const wb = buildWorkbook(rows);
+      state.lastWorkbook = wb;
+      state.lastRows = rows;
+
+      const uniqueInvCount = new Set(rows.filter(r => r.__isData).map(r => r['Invoice Number'])).size;
+      const itemCount = rows.filter(r => r.__isData && !r.__isDiff).length;
+      const igstInvCount = new Set(rows.filter(r => r.__isData && r.__isIgst).map(r => r['Invoice Number'])).size;
+
+      triggerDownload();
+      goToStep(4);
+
+      document.getElementById('doneSummary').innerHTML = `
+        <div class="summary-card"><div class="sv">${uniqueInvCount}</div><div class="sk">Invoices</div></div>
+        <div class="summary-card"><div class="sv">${itemCount}</div><div class="sk">Item Lines</div></div>
+        <div class="summary-card"><div class="sv">${state.differences.length}</div><div class="sk">Diff Lines</div></div>
+        <div class="summary-card accent-card"><div class="sv">${rows.filter(r=>r.__isData).length}</div><div class="sk">Total Rows</div></div>
+        <div class="summary-card" style="border-color:rgba(88,166,255,0.4);background:var(--blue-bg)"><div class="sv" style="color:var(--blue)">${igstInvCount}</div><div class="sk" style="color:var(--blue)">IGST (Inter-State)</div></div>
+        <div class="summary-card" style="border-color:rgba(63,185,80,0.4);background:var(--green-bg)"><div class="sv" style="color:var(--green)">${uniqueInvCount - igstInvCount}</div><div class="sk" style="color:var(--green)">CGST+SGST (Intra-State)</div></div>`;
+    } catch(err) {
+      alert('Error generating Excel: ' + err.message);
+      btn.disabled = false;
+      btn.innerHTML = '⬇️ Generate Excel File';
+      status.textContent = 'Error: ' + err.message;
+    }
+  }, 50);
+}
+
+function buildExcelRows() {
+  const allRows = [];
+  let slNo = 0;
+
+  // Split: non-IGST invoices first, IGST invoices at the end
+  const isIgstInv = inv => inv.rows.some(r => r.igst > 0);
+  const nonIgst = state.invoices.filter(inv => !isIgstInv(inv));
+  const igstInvs = state.invoices.filter(inv => isIgstInv(inv));
+  const orderedInvoices = [...nonIgst, ...igstInvs];
+
+  // Separator row between the two groups
+  let igstSeparatorAdded = false;
+
+  for (const inv of orderedInvoices) {
+    const isIgst = isIgstInv(inv);
+
+    // Insert a visual separator row before the first IGST invoice
+    if (isIgst && !igstSeparatorAdded && igstInvs.length > 0 && nonIgst.length > 0) {
+      igstSeparatorAdded = true;
+      allRows.push({ __isSeparator: true, __isData: false });
+    }
+
+    let invSl = 0;
+    // Generate items for each rate group
+    for (const row of inv.rows) {
+      if (row.taxable === 0 && row.cgst === 0 && row.sgst === 0 && row.igst === 0) continue;
+      const items = generateLineItems(row.taxable, row.gstRate, state.itemsData);
+
+      for (const item of items) {
+        slNo++;
+        invSl++;
+        const itemTax = row.gstRate === 0 ? 0 : item.amount * row.gstRate / 100;
+        const itemCgst = row.cgst > 0 || row.sgst > 0 ? Math.round(itemTax / 2 * 100) / 100 : 0;
+        const itemSgst = itemCgst;
+        const itemIgst = row.igst > 0 ? Math.round(itemTax * 100) / 100 : 0;
+        const itemCess = row.cess > 0 ? Math.round(item.amount * (row.cess / row.taxable) * row.cess / row.taxable * 100) / 100 : 0;
+
+        allRows.push({
+          __isData: true,
+          __isDiff: false,
+          __isIgst: isIgst,
+          'Sl No': slNo,
+          'Invoice Date': inv.invDate,
+          'Invoice Number': inv.invNo,
+          'Party Name': inv.party,
+          'Supplier GSTIN': inv.gstin,
+          'Item Description': item.name,
+          'Unit': 'Nos',
+          'Quantity': item.qty,
+          'Unit Price (₹)': item.price,
+          'Taxable Amount (₹)': item.amount,
+          'GST Rate (%)': row.gstRate,
+          'CGST (₹)': row.cgst > 0 ? itemCgst : 0,
+          'SGST (₹)': row.sgst > 0 ? itemSgst : 0,
+          'IGST (₹)': row.igst > 0 ? itemIgst : 0,
+          'Cess (₹)': 0,
+          'Item Total (₹)': Math.round((item.amount + itemCgst + itemSgst + itemIgst) * 100) / 100,
+          'Difference Amount (₹)': '',
+          'Difference Description': '',
+          'Invoice Value (₹)': invSl === 1 ? inv.invVal : '',
+        });
+      }
+    }
+
+    // Cess rows
+    for (const row of inv.rows) {
+      if (row.cess > 0) {
+        const cessPerUnit = row.cess / Math.max(row.taxable, 1);
+        // Distribute cess across relevant item rows (just add to first matching rate row)
+        const lastMatch = allRows.slice().reverse().find(r => r.__isData && !r.__isDiff && r['Invoice Number'] === inv.invNo && r['GST Rate (%)'] === row.gstRate);
+        if (lastMatch) lastMatch['Cess (₹)'] = row.cess;
+      }
+    }
+
+    // Difference row
+    const diffIdx = state.differences.indexOf(inv);
+    if (diffIdx >= 0 && Math.abs(inv._diff) > 10 && state.includeDiff[diffIdx]) {
+      slNo++;
+      const desc = getDiffDesc(diffIdx);
+      allRows.push({
+        __isData: true,
+        __isDiff: true,
+        __isIgst: isIgst,
+        'Sl No': slNo,
+        'Invoice Date': inv.invDate,
+        'Invoice Number': inv.invNo,
+        'Party Name': inv.party,
+        'Supplier GSTIN': inv.gstin,
+        'Item Description': desc,
+        'Unit': '',
+        'Quantity': 1,
+        'Unit Price (₹)': inv._diff,
+        'Taxable Amount (₹)': inv._diff,
+        'GST Rate (%)': 0,
+        'CGST (₹)': 0,
+        'SGST (₹)': 0,
+        'IGST (₹)': 0,
+        'Cess (₹)': 0,
+        'Item Total (₹)': inv._diff,
+        'Difference Amount (₹)': inv._diff,
+        'Difference Description': desc,
+        'Invoice Value (₹)': '',
+      });
+    }
+  }
+  return allRows;
+}
+
+function buildWorkbook(rows) {
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: Detailed Data ──
+  const headers = ['Sl No','Invoice Date','Invoice Number','Party Name','Supplier GSTIN',
+    'Item Description','Unit','Quantity','Unit Price (₹)','Taxable Amount (₹)',
+    'GST Rate (%)','CGST (₹)','SGST (₹)','IGST (₹)','Cess (₹)',
+    'Item Total (₹)','Difference Amount (₹)','Difference Description','Invoice Value (₹)','Tax Type'];
+
+  const dataRows = rows.filter(r => r.__isData || r.__isSeparator);
+  const wsData = [headers];
+  for (const row of dataRows) {
+    if (row.__isSeparator) {
+      // blank separator row
+      wsData.push(headers.map(() => ''));
+    } else {
+      wsData.push(headers.map(h => {
+        if (h === 'Tax Type') return row.__isIgst ? 'IGST (Inter-State)' : 'CGST+SGST (Intra-State)';
+        const v = row[h];
+        return v === '' || v === undefined ? '' : v;
+      }));
+    }
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  const colWidths = [6,14,22,28,22,35,6,10,16,18,12,12,12,12,10,14,18,25,16,22];
+  ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+  // Style header row
+  for (let c = 0; c < headers.length; c++) {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+    if (!ws[cellRef]) ws[cellRef] = { v: headers[c], t: 's' };
+    ws[cellRef].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 },
+      fill: { fgColor: { rgb: '1E3A5F' } },
+      alignment: { horizontal: 'center', wrapText: true },
+      border: { bottom: { style: 'thin', color: { rgb: '444444' } } }
+    };
+  }
+
+  // Style data rows
+  let dataRowIdx = 0; // index into dataRows (excluding header)
+  for (let r = 1; r < wsData.length; r++) {
+    const rowMeta = dataRows[r - 1];
+    const isSep = rowMeta?.__isSeparator;
+    const isDiff = rowMeta?.__isDiff;
+    const isIgst = rowMeta?.__isIgst;
+
+    for (let c = 0; c < headers.length; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+      const isNumCol = c >= 7 && c <= 18;
+
+      let fillColor;
+      if (isSep) {
+        fillColor = 'D0E8FF'; // light blue separator
+      } else if (isDiff) {
+        fillColor = 'FFF3CD'; // amber for diff rows
+      } else if (isIgst) {
+        fillColor = r % 2 === 0 ? 'EAF4FF' : 'D6ECFF'; // blue tint for IGST
+      } else {
+        fillColor = r % 2 === 0 ? 'F8FAFF' : 'FFFFFF';
+      }
+
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: fillColor } },
+        alignment: { horizontal: isNumCol ? 'right' : 'left' },
+        font: isSep
+          ? { bold: true, sz: 9, color: { rgb: '1E5799' } }
+          : { sz: 9 },
+        border: { bottom: { style: isSep ? 'medium' : 'hair', color: { rgb: isSep ? '1E5799' : 'DDDDDD' } } }
+      };
+
+      if (!isSep && isNumCol && ws[cellRef].v !== '' && !isNaN(ws[cellRef].v)) {
+        ws[cellRef].t = 'n';
+        ws[cellRef].z = '#,##0.00';
+      }
+
+      // Label the separator row in the first cell
+      if (isSep && c === 0) {
+        ws[cellRef].v = '▼  INTER-STATE PURCHASES (IGST)  ▼';
+        ws[cellRef].t = 's';
+        // Merge across all columns
+        if (!ws['!merges']) ws['!merges'] = [];
+        ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: headers.length - 1 } });
+      }
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Purchase Details');
+
+  // ── Sheet 2: Invoice Summary ──
+  const invSummary = {};
+  for (const row of rows.filter(r => r.__isData)) {
+    const k = row['Invoice Number'];
+    if (!invSummary[k]) {
+      invSummary[k] = {
+        'Invoice Date': row['Invoice Date'],
+        'Invoice Number': row['Invoice Number'],
+        'Party Name': row['Party Name'],
+        'Supplier GSTIN': row['Supplier GSTIN'],
+        'Total Taxable (₹)': 0,
+        'Total CGST (₹)': 0,
+        'Total SGST (₹)': 0,
+        'Total IGST (₹)': 0,
+        'Total Cess (₹)': 0,
+        'Difference (₹)': 0,
+        'Invoice Value (₹)': 0,
+        'Items Count': 0,
+      };
+    }
+    invSummary[k]['Total Taxable (₹)'] += (parseFloat(row['Taxable Amount (₹)']) || 0);
+    invSummary[k]['Total CGST (₹)'] += (parseFloat(row['CGST (₹)']) || 0);
+    invSummary[k]['Total SGST (₹)'] += (parseFloat(row['SGST (₹)']) || 0);
+    invSummary[k]['Total IGST (₹)'] += (parseFloat(row['IGST (₹)']) || 0);
+    invSummary[k]['Total Cess (₹)'] += (parseFloat(row['Cess (₹)']) || 0);
+    if (row['Invoice Value (₹)'] !== '') invSummary[k]['Invoice Value (₹)'] = parseFloat(row['Invoice Value (₹)']) || 0;
+    if (!row.__isDiff) invSummary[k]['Items Count']++;
+  }
+
+  // Set difference
+  for (const inv of state.invoices) {
+    if (invSummary[inv.invNo]) {
+      invSummary[inv.invNo]['Difference (₹)'] = inv._diff || 0;
+    }
+  }
+
+  const sumHeaders = ['Invoice Date','Invoice Number','Party Name','Supplier GSTIN',
+    'Total Taxable (₹)','Total CGST (₹)','Total SGST (₹)','Total IGST (₹)',
+    'Total Cess (₹)','Difference (₹)','Invoice Value (₹)','Items Count'];
+  const wsSum = XLSX.utils.aoa_to_sheet([sumHeaders, ...Object.values(invSummary).map(r => sumHeaders.map(h => r[h]))]);
+  wsSum['!cols'] = [14,22,28,22,16,14,14,14,14,14,16,10].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, wsSum, 'Invoice Summary');
+
+  // ── Sheet 3: Tax Rate Summary ──
+  const rateMap = {};
+  for (const inv of state.invoices) {
+    for (const row of inv.rows) {
+      const k = row.gstRate;
+      if (!rateMap[k]) rateMap[k] = { 'GST Rate (%)': k, 'Taxable (₹)': 0, 'CGST (₹)': 0, 'SGST (₹)': 0, 'IGST (₹)': 0, 'Cess (₹)': 0, 'Total Tax (₹)': 0, 'Invoice Count': 0 };
+      rateMap[k]['Taxable (₹)'] += row.taxable;
+      rateMap[k]['CGST (₹)'] += row.cgst;
+      rateMap[k]['SGST (₹)'] += row.sgst;
+      rateMap[k]['IGST (₹)'] += row.igst;
+      rateMap[k]['Cess (₹)'] += row.cess;
+      rateMap[k]['Total Tax (₹)'] += row.cgst + row.sgst + row.igst + row.cess;
+      rateMap[k]['Invoice Count']++;
+    }
+  }
+  const rateHeaders = ['GST Rate (%)','Taxable (₹)','CGST (₹)','SGST (₹)','IGST (₹)','Cess (₹)','Total Tax (₹)','Invoice Count'];
+  const wsRate = XLSX.utils.aoa_to_sheet([rateHeaders, ...Object.values(rateMap).sort((a,b)=>a['GST Rate (%)']-b['GST Rate (%)']).map(r => rateHeaders.map(h => r[h]))]);
+  wsRate['!cols'] = [12,16,14,14,14,14,14,12].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, wsRate, 'Rate-wise Summary');
+
+  return wb;
+}
+
+function triggerDownload() {
+  if (!state.lastWorkbook) return;
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(state.lastWorkbook, `Purchase_Invoice_Items_${dateStr}.xlsx`);
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+function goToStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('panel'+i).classList.toggle('active', i === n);
+    const ind = document.getElementById('stepIndicator'+i);
+    ind.className = 'step' + (i === n ? ' active' : i < n ? ' done' : '');
+    if (i < n) {
+      ind.querySelector('.step-num').textContent = '✓';
+    } else {
+      ind.querySelector('.step-num').textContent = i;
+    }
+  }
+}
+
+function resetTool() {
+  state = { itemsRaw:null, purchasesRaw:null, itemsHeaderRow:-1, purchasesHeaderRow:-1,
+    itemsColumns:[], purchasesColumns:[], itemsData:[], invoices:[], differences:[], includeDiff:[], lastWorkbook:null };
+  document.getElementById('itemsFileInput').value = '';
+  document.getElementById('purchasesFileInput').value = '';
+  ['itemsCard','purchasesCard'].forEach(id => document.getElementById(id).classList.remove('has-file'));
+  document.getElementById('itemsFileName').style.display = 'none';
+  document.getElementById('purchasesFileName').style.display = 'none';
+  ['itemsBadge','purchasesBadge'].forEach(id => {
+    document.getElementById(id).textContent = 'Required';
+    document.getElementById(id).className = 'upload-badge req-badge';
+  });
+  document.getElementById('proceedBtn').disabled = true;
+  document.getElementById('generateBtn').disabled = false;
+  document.getElementById('generateBtn').innerHTML = '⬇️ Generate Excel File';
+  goToStep(1);
+}
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0.00';
+  return Math.abs(n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
