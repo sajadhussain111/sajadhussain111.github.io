@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GST Purchase Report Generator — 2A & 2B</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1F3864;--blue:#2E75B6;--lblue:#D6E4F0;
+  --orange:#C55A11;--lorange:#FCE4D6;
+  --green:#375623;--lgreen:#E2EFDA;
+  --dn:#1F4E79;--ldnote:#D6E4F0;--cn:#7B2C2C;--lcnote:#FCECEA;
+  --purple:#4C3665;--lpurple:#EAE0F4;
+  --teal:#00695C;--lteal:#E0F2F1;
+  --bg:#F0F4FA;--white:#fff;--text:#1a2a44;--muted:#6b7fa3;--border:#C5D5E8
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--navy);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:64px;border-bottom:3px solid var(--blue)}
+header h1{font-size:15px;font-weight:700;color:#fff;letter-spacing:.04em;text-transform:uppercase}
+header span{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#7BAFD4;letter-spacing:.08em}
+main{max-width:1200px;margin:0 auto;padding:32px 20px 60px}
+
+/* Tab Switcher */
+.tab-bar{display:flex;gap:4px;margin-bottom:20px;background:var(--white);border-radius:10px;padding:6px;box-shadow:0 2px 8px rgba(31,56,100,.08)}
+.tab{flex:1;padding:12px 0;text-align:center;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--muted);transition:.2s;border:none;background:none;font-family:inherit}
+.tab.active{background:var(--navy);color:#fff}
+.tab:hover:not(.active){background:var(--lblue);color:var(--navy)}
+
+/* Mode description */
+.mode-desc{background:var(--white);border-radius:10px;padding:14px 20px;margin-bottom:18px;font-size:12px;color:var(--muted);border-left:3px solid var(--blue);display:flex;align-items:center;gap:10px}
+.mode-desc strong{color:var(--navy)}
+
+/* Upload zone */
+.upload-zone{background:var(--white);border:2px dashed var(--border);border-radius:12px;padding:36px;text-align:center;position:relative;cursor:pointer;transition:.2s}
+.upload-zone.dragover{border-color:var(--blue);background:var(--lblue)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone .icon{font-size:38px;margin-bottom:8px}
+.upload-zone h2{font-size:16px;font-weight:600;color:var(--navy)}
+.upload-zone p{font-size:12px;color:var(--muted);margin-top:4px}
+.hint{display:inline-block;margin-top:10px;background:var(--lblue);color:var(--navy);padding:3px 12px;border-radius:20px;font-size:11px;font-weight:500}
+.hint-2b{background:var(--lteal);color:var(--teal)}
+
+/* File chips */
+#file-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{border-radius:6px;padding:5px 12px 5px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:7px}
+.chip.csv-inv{background:var(--navy);color:#fff}
+.chip.csv-dcn{background:var(--orange);color:#fff}
+.chip.xlsx-2b{background:var(--teal);color:#fff}
+.chip .badge{border-radius:3px;padding:1px 6px;font-size:10px;background:rgba(255,255,255,.25)}
+.chip .rm{cursor:pointer;opacity:.7;margin-left:3px}.chip .rm:hover{opacity:1;color:#ff8080}
+
+/* Buttons */
+.btn{margin-top:22px;display:block;width:100%;background:var(--navy);color:#fff;border:none;border-radius:8px;padding:15px 0;font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:.2s;font-family:inherit}
+.btn:hover:not(:disabled){background:var(--blue)}
+.btn:disabled{background:#a0aec0;cursor:not-allowed}
+.btn.teal{background:var(--teal)}
+.btn.teal:hover:not(:disabled){background:#00897B}
+
+/* Status */
+#status{margin-top:14px;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:500;display:none}
+#status.info{background:var(--lblue);color:var(--navy);display:block}
+#status.success{background:var(--lgreen);color:var(--green);display:block}
+#status.error{background:var(--lorange);color:var(--orange);display:block}
+
+/* Section title */
+.sec-title{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 12px;padding-bottom:5px;border-bottom:2px solid var(--border)}
+
+/* Totals bar */
+.totals-bar{border-radius:10px;padding:18px 24px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin-bottom:22px}
+.totals-bar.navy{background:var(--navy)}
+.totals-bar.teal{background:var(--teal)}
+.t-item .tl{font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.06em}
+.t-item .tv{font-size:14px;font-weight:700;color:#fff;font-family:'IBM Plex Mono',monospace}
+
+/* Month grid */
+.month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.month-card{background:var(--white);border-radius:10px;overflow:hidden;box-shadow:0 3px 16px rgba(31,56,100,.09)}
+.card-hdr{padding:12px 16px;font-size:13px;font-weight:700;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.card-hdr .late-flag{background:rgba(255,255,255,.2);border-radius:4px;padding:2px 8px;font-size:11px}
+.card-body{padding:0}
+.row-block{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;font-size:11px}
+.row-block .rb-label{padding:6px 10px;font-weight:600;font-size:10px;display:flex;align-items:center;grid-column:1/5;border-bottom:1px solid rgba(0,0,0,.06)}
+.row-block .rb-val{padding:5px 10px;border-bottom:1px solid rgba(0,0,0,.05);text-align:right}
+.row-block .rb-key{padding:5px 10px;border-bottom:1px solid rgba(0,0,0,.05);color:var(--muted);font-size:10px}
+.row-purchase .rb-label{background:#EEF4FA;color:var(--navy)}
+.row-dn .rb-label{background:#EEF2FA;color:var(--dn)}
+.row-cn .rb-label{background:#FBF0F0;color:var(--cn)}
+.row-amend .rb-label{background:#EDE8F6;color:var(--purple)}
+.row-net .rb-label{background:#EFF7EE;color:var(--green);font-weight:800}
+.row-net .rb-val{font-weight:700;color:var(--green)}
+
+/* 2B specific */
+.fy-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px}
+.fy-badge.curr{background:var(--lgreen);color:var(--green)}
+.fy-badge.prev{background:var(--lorange);color:var(--orange)}
+.month-label-2b{font-size:11px;color:var(--muted);margin:4px 0 0;padding:0 16px 8px}
+
+.late-box{background:var(--lorange);padding:8px 12px;font-size:11px;color:var(--orange)}
+.late-box strong{display:block;margin-bottom:3px}
+
+/* Panel tabs */
+.panel{display:none}.panel.active{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>⊞ GST Purchase Report Generator</h1>
+  <span>GSTR-2A CSV  ·  GSTR-2B EXCEL  ·  WITH DCN / AMENDMENT ADJUSTMENTS</span>
+</header>
+<main>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchMode('2a')">📄 GSTR-2A (CSV Files)</button>
+    <button class="tab" onclick="switchMode('2b')">📊 GSTR-2B (Excel Files)</button>
+  </div>
+
+  <!-- 2A Panel -->
+  <div id="panel-2a" class="panel active">
+    <div class="mode-desc">
+      <span>ℹ️</span>
+      <span><strong>GSTR-2A Mode:</strong> Upload Invoice CSVs and/or Debit-Credit Note CSVs downloaded from the GST portal. Auto-detects month, deduplicates on composite key, shows rate-wise breakdown with DCN adjustments.</span>
+    </div>
+    <div class="upload-zone" id="dz-2a">
+      <input type="file" id="fi-2a" multiple accept=".csv"/>
+      <div class="icon">📂</div>
+      <h2>Drop GSTR-2A CSV files here</h2>
+      <p>Upload Invoice CSVs and/or Debit-Credit Note CSVs from the GST portal</p>
+      <span class="hint">Auto-detects month · Composite key deduplication · Full styled Excel output</span>
+    </div>
+    <div id="file-list-2a"></div>
+    <button class="btn" id="gen-btn-2a" disabled onclick="generate2A()">⬇ Generate GSTR-2A Purchase Report</button>
+  </div>
+
+  <!-- 2B Panel -->
+  <div id="panel-2b" class="panel">
+    <div class="mode-desc">
+      <span>ℹ️</span>
+      <span><strong>GSTR-2B Mode:</strong> Upload Excel files downloaded from GSTR-2B portal. Supports <strong>both formats</strong> — single-sheet (B2B only) and full multi-sheet format. Reads B2B, B2BA (amendments), B2B-CDNR, B2B-DNRA, B2B-CDNRA sheets. Shows monthly totals with current year vs previous year invoice split, plus CN/DN/amendment adjustments.</span>
+    </div>
+    <div class="upload-zone" id="dz-2b">
+      <input type="file" id="fi-2b" multiple accept=".xlsx,.xls"/>
+      <div class="icon">📊</div>
+      <h2>Drop GSTR-2B Excel files here</h2>
+      <p>Upload one or multiple months — both single-sheet (B2B only) and full multi-sheet format supported</p>
+      <span class="hint hint-2b">Auto-detects period · Current vs Previous Year split · Amendment adjustments · Excel output</span>
+    </div>
+    <div id="file-list-2b"></div>
+    <button class="btn teal" id="gen-btn-2b" disabled onclick="generate2B()">⬇ Generate GSTR-2B Purchase Report</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="preview" style="display:none">
+    <div class="sec-title" id="prev-title">Grand Totals — FY Summary</div>
+    <div id="totals-bar-wrap"></div>
+    <div class="sec-title" id="prev-month-title">Month-wise Breakdown</div>
+    <div class="month-grid" id="month-grid"></div>
+  </div>
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SHARED UTILITIES
+// ═══════════════════════════════════════════════════════════════
+const VALID_RATES = new Set([0,5,12,18,28,40]);
+const MN = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTH_NAME_MAP = {january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+
+function getFY(y,m){ return m>=4 ? `FY ${y}-${String(y+1).slice(-2)}` : `FY ${y-1}-${String(y).slice(-2)}`; }
+function cn(v){ const s=String(v||'').trim().replace(/,/g,''); if(['-','','null','undefined'].includes(s))return 0; const n=parseFloat(s);return isNaN(n)?0:n; }
+function fmt(n){ if(!n)return'—'; return n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function setStatus(t,m){ const el=document.getElementById('status');el.className=t;el.textContent=m; }
+function switchMode(m){
+  document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',i===(m==='2a'?0:1));});
+  document.getElementById('panel-2a').classList.toggle('active',m==='2a');
+  document.getElementById('panel-2b').classList.toggle('active',m==='2b');
+  document.getElementById('preview').style.display='none';
+}
+
+// Trade name cache
+const tradeNameCache = {'01AAACH2702H2ZD':'HDFC BANK LTD','01AADCI8122R1ZF':'IA MULTI VENTURES PVT LTD'};
+async function fetchTradeName(gstin){ if(location.protocol==='file:')return null; try{ const res=await fetch('http://localhost:3001/gst-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gstin})}); if(!res.ok)return null; const data=await res.json(); const name=data?.tradeName||data?.rawResult?.tradeName; return (name&&name.trim().length>1)?name.trim().toUpperCase():null; }catch(e){return null;} }
+async function prefetchTradeNames(gstins){ const unique=[...new Set(gstins.map(g=>(g||'').trim().toUpperCase()).filter(Boolean))].filter(g=>!tradeNameCache[g]); if(!unique.length)return; await Promise.allSettled(unique.map(async g=>{ const name=await fetchTradeName(g); if(name)tradeNameCache[g]=name; })); }
+function getTradeName(gstin){ const g=(gstin||'').trim().toUpperCase(); return tradeNameCache[g]||g; }
+
+// ═══════════════════════════════════════════════════════════════
+// GSTR-2A (CSV) LOGIC
+// ═══════════════════════════════════════════════════════════════
+let invFiles=[], dcnFiles=[];
+
+const dz2a=document.getElementById('dz-2a');
+dz2a.addEventListener('dragover',e=>{e.preventDefault();dz2a.classList.add('dragover')});
+dz2a.addEventListener('dragleave',()=>dz2a.classList.remove('dragover'));
+dz2a.addEventListener('drop',e=>{e.preventDefault();dz2a.classList.remove('dragover');handleFiles2A(e.dataTransfer.files)});
+document.getElementById('fi-2a').addEventListener('change',e=>handleFiles2A(e.target.files));
+
+function handleFiles2A(files){
+  Array.from(files).forEach(file=>{
+    if(!file.name.endsWith('.csv'))return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const isDCN=e.target.result.includes('Debit/Credit notes');
+      if(isDCN)processDCNFile(file,e.target.result); else processInvFile(file,e.target.result);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function detectMonth(rows,col){ const mc={}; rows.forEach(r=>{ const d=(r[col]||'').trim(); const m=d.match(/^(\d{1,2})-(\d{2})-(\d{4})$/); if(m){const k=`${m[3]}-${m[2].padStart(2,'0')}`;mc[k]=(mc[k]||0)+1;} }); if(!Object.keys(mc).length)return null; return Object.entries(mc).sort((a,b)=>b[1]-a[1])[0][0]; }
+function processInvFile(file,text){ const rows=parseCSV2A(text); if(!rows.length)return; const ym=detectMonth(rows,'Invoice Date'); if(!ym)return; const[y,m]=ym.split('-').map(Number); invFiles=invFiles.filter(f=>!(f.y===y&&f.m===m)); invFiles.push({file,label:`${MN[m]}-${y}`,y,m,rows,type:'inv'}); invFiles.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m); renderChips2A(); }
+function processDCNFile(file,text){ const rows=parseCSV2A(text); if(!rows.length)return; const ym=detectMonth(rows,'Note date'); if(!ym)return; const[y,m]=ym.split('-').map(Number); dcnFiles=dcnFiles.filter(f=>!(f.y===y&&f.m===m)); dcnFiles.push({file,label:`${MN[m]}-${y}`,y,m,rows,type:'dcn'}); dcnFiles.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m); renderChips2A(); }
+
+function parseCSV2A(text){ const lines=text.replace(/\r/g,'').split('\n'); const hi=lines.findIndex(l=>l.includes('GSTIN of supplier')); if(hi<0)return[]; const hdrs=parseLine2A(lines[hi]); const rows=[]; for(let i=hi+1;i<lines.length;i++){ if(!lines[i].trim())continue; const vals=parseLine2A(lines[i]); if(vals.length<hdrs.length-3)continue; const row={}; hdrs.forEach((h,idx)=>row[h.trim()]=(vals[idx]||'').trim()); if(row['GSTIN of supplier'])rows.push(row); } return rows; }
+function parseLine2A(line){ const res=[];let cur='';let inQ=false; for(const ch of line){ if(ch==='"')inQ=!inQ; else if(ch===','&&!inQ){res.push(cur);cur='';} else cur+=ch; } res.push(cur); return res.map(s=>s.replace(/^"|"$/g,'').trim()); }
+function parseDate(s){ const m=(s||'').trim().match(/^(\d{1,2})-(\d{2})-(\d{4})$/); return m?{d:+m[1],m:+m[2],y:+m[3]}:null; }
+
+function renderChips2A(){
+  const all=[...invFiles.map(f=>({...f,isDCN:false})),...dcnFiles.map(f=>({...f,isDCN:true}))];
+  all.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m!==b.m?a.m-b.m:a.isDCN?1:-1);
+  document.getElementById('file-list-2a').innerHTML=all.map((f,i)=>`
+    <div class="chip ${f.isDCN?'csv-dcn':'csv-inv'}">
+      <span class="badge">${f.label}</span>
+      <span>${f.file.name.length>30?f.file.name.slice(0,28)+'…':f.file.name}</span>
+      <span class="rm" data-idx="${i}" data-isdcn="${f.isDCN}" data-label="${f.label}" onclick="removeFile2A(this)">✕</span>
+    </div>`).join('');
+  document.getElementById('gen-btn-2a').disabled=(invFiles.length+dcnFiles.length)===0;
+}
+
+function removeFile2A(el){
+  const label=el.dataset.label, isDCN=el.dataset.isdcn==='true';
+  if(isDCN) dcnFiles=dcnFiles.filter(f=>f.label!==label);
+  else invFiles=invFiles.filter(f=>f.label!==label);
+  renderChips2A();
+}
+
+function processInvMonth(entry){
+  const{rows,y,m}=entry; const fm=[y,m];
+  const iK=new Set(),tK=new Set();
+  const inv=[],tax=[],late=[];
+  rows.forEach(row=>{
+    const gstin=row['GSTIN of supplier']||''; const invNo=row['Invoice number']||'';
+    const date=(row['Invoice Date']||'').trim(); const iv=cn(row['Invoice Value (₹)']);
+    const ik=`${gstin}||${invNo}||${date}`;
+    if(!iK.has(ik)){ iK.add(ik); const dt=parseDate(date); const isLate=dt&&(dt.y!==fm[0]||dt.m!==fm[1]); const crossFY=dt&&getFY(dt.y,dt.m)!==getFY(fm[0],fm[1]); const im=dt?[dt.y,dt.m]:null; inv.push({gstin,invNo,type:row['Invoice type']||'',date,pos:row['Place of supply']||'',iv,isLate,im,crossFY:crossFY||false}); if(isLate)late.push({gstin,invNo,date,im,iv,crossFY:crossFY||false}); }
+    const rs=(row['Rate (%)']||'').replace(/"/g,'').trim(); let rate=parseFloat(rs);if(isNaN(rate))return;rate=Number.isInteger(rate)?rate:Math.round(rate); if(!VALID_RATES.has(rate))return;
+    const tk=`${gstin}||${invNo}||${date}||${rate}`;
+    if(!tK.has(tk)){ tK.add(tk); tax.push({gstin,invNo,date,rate,tv:cn(row['Taxable Value']),igst:cn(row['Integrated Tax']),cgst:cn(row['Central Tax']),sgst:cn(row['State/UT tax']),cess:cn(row['Cess'])}); }
+  });
+  const S=(a,k)=>a.reduce((s,x)=>s+x[k],0);
+  const tv=S(tax,'tv'),ig=S(tax,'igst'),cg=S(tax,'cgst'),sg=S(tax,'sgst'),ce=S(tax,'cess'),tt=ig+cg+sg+ce;
+  return{label:entry.label,y,m,fm,totalInv:inv.length,invVal:S(inv,'iv'),tv,igst:ig,cgst:cg,sgst:sg,cess:ce,totalTax:tt,gt:tv+tt,late,inv:inv.sort((a,b)=>a.gstin.localeCompare(b.gstin)),tax:tax.sort((a,b)=>a.gstin.localeCompare(b.gstin)||a.rate-b.rate)};
+}
+
+function processDCNMonth(entry){
+  const{rows,y,m}=entry;
+  const nK=new Set(),tK=new Set();
+  const nd=[],td=[];
+  rows.forEach(row=>{
+    const gstin=row['GSTIN of supplier']||''; const nn=row['Note number']||''; const ndt=(row['Note date']||'').trim(); const nt=row['Note type']||''; const nv=cn(row['Note Value (₹)']);
+    const key=`${gstin}||${nn}||${ndt}`; if(!nK.has(key)){nK.add(key);nd.push({gstin,noteNo:nn,noteType:nt,noteDate:ndt,noteVal:nv});}
+    const rs=(row['Rate (%)']||'').replace(/"/g,'').trim(); let rate=parseFloat(rs);if(isNaN(rate))return;rate=Number.isInteger(rate)?rate:Math.round(rate); if(!VALID_RATES.has(rate))return;
+    const tk=`${gstin}||${nn}||${ndt}||${rate}`; if(!tK.has(tk)){ tK.add(tk); td.push({gstin,noteNo:nn,noteType:nt,noteDate:ndt,rate,tv:cn(row['Taxable Value']),igst:cn(row['Integrated Tax']),cgst:cn(row['Central Tax']),sgst:cn(row['State/UT tax']),cess:cn(row['Cess'])}); }
+  });
+  const noteAgg=new Map();
+  td.forEach(t=>{ const k=`${t.gstin}||${t.noteNo}`; if(!noteAgg.has(k))noteAgg.set(k,{gstin:t.gstin,noteNo:t.noteNo,noteType:t.noteType,noteDate:t.noteDate,noteVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0}); const e=noteAgg.get(k);e.tv+=t.tv;e.igst+=t.igst;e.cgst+=t.cgst;e.sgst+=t.sgst;e.cess+=t.cess; });
+  nd.forEach(n=>{ const k=`${n.gstin}||${n.noteNo}`; if(noteAgg.has(k))noteAgg.get(k).noteVal=n.noteVal; else noteAgg.set(k,{gstin:n.gstin,noteNo:n.noteNo,noteType:n.noteType,noteDate:n.noteDate,noteVal:n.noteVal,tv:0,igst:0,cgst:0,sgst:0,cess:0}); });
+  const ndAgg=Array.from(noteAgg.values()).sort((a,b)=>a.gstin.localeCompare(b.gstin)||a.noteNo.localeCompare(b.noteNo));
+  const S=(a,k,t)=>a.filter(x=>t?x.noteType.includes(t):true).reduce((s,x)=>s+(x[k]||0),0);
+  const cnNv=S(ndAgg,'noteVal','Credit'),dnNv=S(ndAgg,'noteVal','Debit');
+  const cnTv=S(ndAgg,'tv','Credit'),dnTv=S(ndAgg,'tv','Debit');
+  const cnIg=S(ndAgg,'igst','Credit'),dnIg=S(ndAgg,'igst','Debit');
+  const cnCg=S(ndAgg,'cgst','Credit'),dnCg=S(ndAgg,'cgst','Debit');
+  const cnSg=S(ndAgg,'sgst','Credit'),dnSg=S(ndAgg,'sgst','Debit');
+  const cnCe=S(ndAgg,'cess','Credit'),dnCe=S(ndAgg,'cess','Debit');
+  const netTv=dnTv-cnTv,netIg=dnIg-cnIg,netCg=dnCg-cnCg,netSg=dnSg-cnSg,netCe=dnCe-cnCe,netTax=netIg+netCg+netSg+netCe;
+  return{y,m,cnNv,dnNv,netNv:dnNv-cnNv,cnTv,dnTv,netTv,cnIg,dnIg,netIg,cnCg,dnCg,netCg,cnSg,dnSg,netSg,cnCe,dnCe,netCe,netTax,netGrand:netTv+netTax,nd:ndAgg,td,cnCount:ndAgg.filter(x=>x.noteType.includes('Credit')).length,dnCount:ndAgg.filter(x=>x.noteType.includes('Debit')).length};
+}
+
+function taxByRate(taxList,dcnTd){
+  const rates=[...new Set([...taxList.map(d=>d.rate),...(dcnTd||[]).map(d=>d.rate)])].sort((a,b)=>a-b);
+  const out={};
+  rates.forEach(rate=>{
+    const inv=taxList.filter(d=>d.rate===rate); const cn_=(dcnTd||[]).filter(d=>d.rate===rate&&d.noteType.includes('Credit')); const dn_=(dcnTd||[]).filter(d=>d.rate===rate&&d.noteType.includes('Debit'));
+    const S=(a,k)=>a.reduce((s,x)=>s+x[k],0);
+    const invTv=S(inv,'tv'),invIg=S(inv,'igst'),invCg=S(inv,'cgst'),invSg=S(inv,'sgst'),invCe=S(inv,'cess');
+    const cnTv=S(cn_,'tv'),cnIg=S(cn_,'igst'),cnCg=S(cn_,'cgst'),cnSg=S(cn_,'sgst'),cnCe=S(cn_,'cess');
+    const dnTv=S(dn_,'tv'),dnIg=S(dn_,'igst'),dnCg=S(dn_,'cgst'),dnSg=S(dn_,'sgst'),dnCe=S(dn_,'cess');
+    const invTax=invIg+invCg+invSg+invCe;
+    const netTv=invTv+dnTv-cnTv,netIg=invIg+dnIg-cnIg,netCg=invCg+dnCg-cnCg,netSg=invSg+dnSg-cnSg,netCe=invCe+dnCe-cnCe,netTax=netIg+netCg+netSg+netCe;
+    out[rate]={rate,invTv,invIg,invCg,invSg,invCe,invTax,invGt:invTv+invTax,cnTv,dnTv,netTv,netIg,netCg,netSg,netCe,netTax,netGt:netTv+netTax,cnIg,cnCg,cnSg,cnCe,dnIg,dnCg,dnSg,dnCe};
+  });
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GSTR-2B (Excel) LOGIC
+// ═══════════════════════════════════════════════════════════════
+let files2B = []; // [{file, label, y, m, data}]
+
+const dz2b=document.getElementById('dz-2b');
+dz2b.addEventListener('dragover',e=>{e.preventDefault();dz2b.classList.add('dragover')});
+dz2b.addEventListener('dragleave',()=>dz2b.classList.remove('dragover'));
+dz2b.addEventListener('drop',e=>{e.preventDefault();dz2b.classList.remove('dragover');handleFiles2B(e.dataTransfer.files)});
+document.getElementById('fi-2b').addEventListener('change',e=>handleFiles2B(e.target.files));
+
+function handleFiles2B(files){
+  Array.from(files).forEach(file=>{
+    if(!file.name.match(/\.(xlsx|xls)$/i))return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        const data=new Uint8Array(ev.target.result);
+        const wb=XLSX.read(data,{type:'array',cellDates:true});
+        parse2BExcel(file, wb);
+      }catch(err){ setStatus('error','❌ Error reading '+file.name+': '+err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parse2BExcel(file, wb){
+  const sheets=wb.SheetNames;
+  let period=null, gstin='', tradeName='';
+
+  // Detect format type: full (has 'Read me') or simple (B2B only)
+  const isFullFormat = sheets.includes('Read me');
+
+  if(isFullFormat){
+    // Read period from 'Read me' sheet
+    const rmSheet=wb.Sheets['Read me'];
+    const rmData=XLSX.utils.sheet_to_json(rmSheet,{header:1,defval:null});
+    rmData.forEach(row=>{
+      if(row[0]==='Financial Year'){ /* FY */ }
+      if(row[0]==='Tax Period' && row[2]){
+        const mn=String(row[2]).toLowerCase().trim();
+        if(MONTH_NAME_MAP[mn]) period={m:MONTH_NAME_MAP[mn]};
+      }
+      if(row[0]==='Tax Period' && row[2] && !period){
+        const mn=String(row[2]).toLowerCase().trim();
+        if(MONTH_NAME_MAP[mn]) period={m:MONTH_NAME_MAP[mn]};
+      }
+      if(row[0]==='GSTIN') gstin=String(row[2]||'').trim();
+      if(row[0]==='Trade Name (if any)') tradeName=String(row[2]||'').trim();
+    });
+    // Get FY year from Read me
+    rmData.forEach(row=>{
+      if(row[0]==='Financial Year' && row[2]){
+        const fy=String(row[2]||'').match(/(\d{4})/);
+        if(fy&&period){
+          const fy1=parseInt(fy[0]);
+          // FY 2024-25 means Apr 2024 - Mar 2025
+          // if month >= 4, year = fy1; if month < 4, year = fy1+1
+          period.y = period.m>=4 ? fy1 : fy1+1;
+        }
+      }
+    });
+  } else {
+    // Simple format: detect period from invoice dates in B2B sheet
+    const b2bSheet=wb.Sheets['B2B'];
+    if(!b2bSheet){ setStatus('error','❌ No B2B sheet found in '+file.name); return; }
+    const b2bData=XLSX.utils.sheet_to_json(b2bSheet,{header:1,defval:null});
+    // Find header row and data
+    let dataStart=-1;
+    for(let i=0;i<b2bData.length;i++){
+      if(b2bData[i]&&b2bData[i][0]==='GSTIN of supplier'){dataStart=i+2;break;}
+    }
+    // Collect dates from 'Invoice Date' column (col index 4 in sub-header)
+    const dateCounts={};
+    for(let i=dataStart;i<Math.min(dataStart+200,b2bData.length);i++){
+      const row=b2bData[i]; if(!row||!row[0])continue;
+      const dateVal=row[4]; // Invoice Date col
+      if(!dateVal)continue;
+      let dateStr=String(dateVal).trim();
+      // Could be a date object or string like "18/03/2025"
+      let m2=dateStr.match(/(\d{1,2})\/(\d{2})\/(\d{4})/);
+      if(!m2)m2=dateStr.match(/(\d{1,2})-(\d{2})-(\d{4})/);
+      if(m2){ const k=`${m2[3]}-${m2[2].padStart(2,'0')}`;dateCounts[k]=(dateCounts[k]||0)+1; }
+    }
+    if(Object.keys(dateCounts).length){
+      const top=Object.entries(dateCounts).sort((a,b)=>b[1]-a[1])[0][0].split('-');
+      period={y:parseInt(top[0]),m:parseInt(top[1])};
+    }
+    // Also try filename: B2B_032025_... → month=03, year=2025
+    if(!period){
+      const fm=file.name.match(/B2B[_-](\d{2})(\d{4})/i);
+      if(fm)period={y:parseInt(fm[2]),m:parseInt(fm[1])};
+    }
+  }
+
+  if(!period||!period.y||!period.m){
+    setStatus('error','❌ Could not detect period from '+file.name+'. Please check the file.');
+    return;
+  }
+
+  // Parse all relevant sheets
+  const data2B = parse2BSheets(wb, sheets, isFullFormat, period);
+  data2B.gstin=gstin; data2B.tradeName=tradeName;
+
+  const {y,m}=period;
+  const label=`${MN[m]}-${y}`;
+  files2B=files2B.filter(f=>!(f.y===y&&f.m===m));
+  files2B.push({file,label,y,m,data:data2B,isFullFormat});
+  files2B.sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m);
+  renderChips2B();
+}
+
+function parse2BSheets(wb, sheets, isFullFormat, period){
+  const result={
+    b2b:[],     // regular invoices
+    b2ba:[],    // amendments to invoices
+    cdnr:[],    // credit/debit notes (combined in older format, split in newer)
+    dnr:[],     // debit notes (newer full format has separate sheet)
+    cdnra:[],   // amendments to credit notes
+    dnra:[],    // amendments to debit notes
+  };
+
+  // ── B2B Sheet ──
+  if(sheets.includes('B2B')){
+    result.b2b = parse2BB2BSheet(wb.Sheets['B2B']);
+  }
+
+  if(isFullFormat){
+    // ── B2BA (Amendments to invoices) ──
+    if(sheets.includes('B2BA')){
+      result.b2ba = parse2BB2BASheet(wb.Sheets['B2BA']);
+    }
+    // ── B2B-CDNR (Credit Notes — combined CN/DN in older, CN only in newer) ──
+    if(sheets.includes('B2B-CDNR')){
+      result.cdnr = parse2BCDNRSheet(wb.Sheets['B2B-CDNR']);
+    }
+    // ── B2B-DNR (Debit Notes — separate sheet in newer format) ──
+    if(sheets.includes('B2B-DNR')){
+      result.dnr = parse2BCDNRSheet(wb.Sheets['B2B-DNR'], 'Debit Note');
+    }
+    // ── B2B-CDNRA (Amendments to CN/DN) ──
+    if(sheets.includes('B2B-CDNRA')){
+      result.cdnra = parse2BCDNRASheet(wb.Sheets['B2B-CDNRA']);
+    }
+    // ── B2B-DNRA (Amendments to Debit Notes) ──
+    if(sheets.includes('B2B-DNRA')){
+      result.dnra = parse2BCDNRASheet(wb.Sheets['B2B-DNRA'], 'Debit Note');
+    }
+  }
+
+  return result;
+}
+
+// ── Helper: detect if a header row array contains the Rate(%) column ──────────
+// Returns true if any cell in the row is exactly 'Rate(%)' or 'Rate (%)'
+function hasRateCol(headerRow){
+  if(!headerRow)return false;
+  return headerRow.some(c=>c&&/^Rate\s*\(%\)/i.test(String(c).trim()));
+}
+
+// Parse B2B sheet
+// OLD format (up to ~Sep-2024): col 8 = Rate(%), 9 = Taxable, 10 = IGST, 11 = CGST, 12 = SGST, 13 = Cess
+// NEW format (Oct-2024 onwards): col 8 = Taxable, 9 = IGST, 10 = CGST, 11 = SGST, 12 = Cess
+function parse2BB2BSheet(sheet){
+  const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+  const invoices=[];
+  let dataStart=-1, hdrRow=null;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i]&&rows[i][0]==='GSTIN of supplier'){
+      hdrRow=rows[i];       // group-header row (row 4)
+      dataStart=i+2;        // skip sub-header row (row 5), data starts at row 6
+      break;
+    }
+  }
+  if(dataStart<0)return invoices;
+  // Rate(%) sits in the group-header row (col 8 in old, absent in new)
+  const hasRate=hasRateCol(hdrRow);
+  // If Rate(%) is present all financial columns shift +1
+  const O=hasRate?1:0; // offset
+  for(let i=dataStart;i<rows.length;i++){
+    const r=rows[i]; if(!r||!r[0])continue;
+    const gstin=String(r[0]||'').trim();
+    if(!gstin||gstin.length<10)continue;
+    const tradeName  = String(r[1]||'').trim();
+    const invNo      = String(r[2]||'').trim();
+    const invType    = String(r[3]||'').trim();
+    const invDate    = String(r[4]||'').trim();
+    const invVal     = parseFloat(r[5])||0;
+    const pos        = String(r[6]||'').trim();
+    const rcm        = String(r[7]||'').trim().toLowerCase()==='yes';
+    // col 8 is Rate(%) in old, TaxableValue in new — apply offset
+    const taxableVal = parseFloat(r[8+O])||0;
+    const igst       = parseFloat(r[9+O])||0;
+    const cgst       = parseFloat(r[10+O])||0;
+    const sgst       = parseFloat(r[11+O])||0;
+    const cess       = parseFloat(r[12+O])||0;
+    const filingPeriod = String(r[13+O]||'').trim();
+    const itcAvail   = String(r[15+O]||r[16+O]||'').trim();
+    invoices.push({gstin,tradeName,invNo,invType,invDate,invVal,pos,rcm,taxableVal,igst,cgst,sgst,cess,filingPeriod,itcAvail});
+  }
+  return invoices;
+}
+
+// Parse B2BA (amendments to invoices)
+// OLD: col 10 = Rate(%), 11 = Taxable, 12 = IGST, 13 = CGST, 14 = SGST, 15 = Cess
+// NEW: col 10 = Taxable, 11 = IGST, 12 = CGST, 13 = SGST, 14 = Cess
+function parse2BB2BASheet(sheet){
+  const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+  const amendments=[];
+  let dataStart=-1, hdrRow=null;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i]&&rows[i][0]==='Invoice number'&&rows[i][2]==='GSTIN of supplier'){
+      hdrRow=rows[i];
+      dataStart=i+2;
+      break;
+    }
+  }
+  if(dataStart<0)return amendments;
+  const hasRate=hasRateCol(hdrRow);
+  const O=hasRate?1:0;
+  for(let i=dataStart;i<rows.length;i++){
+    const r=rows[i]; if(!r||!r[2])continue;
+    const origInvNo  = String(r[0]||'').trim();
+    const origDate   = String(r[1]||'').trim();
+    const gstin      = String(r[2]||'').trim();
+    if(!gstin||gstin.length<10)continue;
+    const tradeName  = String(r[3]||'').trim();
+    const revInvNo   = String(r[4]||'').trim();
+    const revInvDate = String(r[6]||'').trim();
+    const invVal     = parseFloat(r[7])||0;
+    // col 10 is Rate(%) in old, TaxableValue in new — apply offset
+    const taxableVal = parseFloat(r[10+O])||0;
+    const igst       = parseFloat(r[11+O])||0;
+    const cgst       = parseFloat(r[12+O])||0;
+    const sgst       = parseFloat(r[13+O])||0;
+    const cess       = parseFloat(r[14+O])||0;
+    amendments.push({gstin,tradeName,origInvNo,origDate,revInvNo,revInvDate,invVal,taxableVal,igst,cgst,sgst,cess,type:'amendment'});
+  }
+  return amendments;
+}
+
+// Parse B2B-CDNR or B2B-DNR sheet (credit/debit notes)
+// OLD: col 9 = Rate(%), 10 = Taxable, 11 = IGST, 12 = CGST, 13 = SGST, 14 = Cess
+// NEW: col 9 = Taxable, 10 = IGST, 11 = CGST, 12 = SGST, 13 = Cess
+function parse2BCDNRSheet(sheet, forceType=null){
+  const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+  const notes=[];
+  let dataStart=-1, hdrRow=null;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i]&&rows[i][0]==='GSTIN of supplier'){
+      hdrRow=rows[i];
+      dataStart=i+2;
+      break;
+    }
+  }
+  if(dataStart<0)return notes;
+  const hasRate=hasRateCol(hdrRow);
+  const O=hasRate?1:0;
+  for(let i=dataStart;i<rows.length;i++){
+    const r=rows[i]; if(!r||!r[0])continue;
+    const gstin          = String(r[0]||'').trim();
+    if(!gstin||gstin.length<10)continue;
+    const tradeName      = String(r[1]||'').trim();
+    const noteNo         = String(r[2]||'').trim();
+    const noteType       = forceType||String(r[3]||'').trim();
+    const noteSupplyType = String(r[4]||'').trim();
+    const noteDate       = String(r[5]||'').trim();
+    const noteVal        = parseFloat(r[6])||0;
+    // col 9 is Rate(%) in old, TaxableValue in new — apply offset
+    const taxableVal     = parseFloat(r[9+O])||0;
+    const igst           = parseFloat(r[10+O])||0;
+    const cgst           = parseFloat(r[11+O])||0;
+    const sgst           = parseFloat(r[12+O])||0;
+    const cess           = parseFloat(r[13+O])||0;
+    notes.push({gstin,tradeName,noteNo,noteType,noteSupplyType,noteDate,noteVal,taxableVal,igst,cgst,sgst,cess});
+  }
+  return notes;
+}
+
+// Parse B2B-CDNRA or B2B-DNRA (amendments to notes)
+// OLD: col 12 = Rate(%), 13 = Taxable, 14 = IGST, 15 = CGST, 16 = SGST, 17 = Cess
+// NEW: col 12 = Taxable, 13 = IGST, 14 = CGST, 15 = SGST, 16 = Cess
+// (The CDNRA header anchor is at row with 'Note type' at col 0 + 'GSTIN of supplier' at col 3)
+function parse2BCDNRASheet(sheet, forceType=null){
+  const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+  const notes=[];
+  let dataStart=-1, hdrRow=null;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i]&&rows[i][0]==='Note type'&&rows[i][3]==='GSTIN of supplier'){
+      hdrRow=rows[i];
+      dataStart=i+2;
+      break;
+    }
+  }
+  if(dataStart<0)return notes;
+  const hasRate=hasRateCol(hdrRow);
+  const O=hasRate?1:0;
+  for(let i=dataStart;i<rows.length;i++){
+    const r=rows[i]; if(!r||!r[3])continue;
+    const gstin      = String(r[3]||'').trim();
+    if(!gstin||gstin.length<10)continue;
+    const tradeName  = String(r[4]||'').trim();
+    const revNoteNo  = String(r[5]||'').trim();
+    const noteType   = forceType||String(r[6]||'').trim();
+    const noteDate   = String(r[8]||'').trim();
+    const noteVal    = parseFloat(r[9])||0;
+    // col 12 is Rate(%) in old, TaxableValue in new — apply offset
+    const taxableVal = parseFloat(r[12+O])||0;
+    const igst       = parseFloat(r[13+O])||0;
+    const cgst       = parseFloat(r[14+O])||0;
+    const sgst       = parseFloat(r[15+O])||0;
+    const cess       = parseFloat(r[16+O])||0;
+    notes.push({gstin,tradeName,noteNo:revNoteNo,noteType,noteDate,noteVal,taxableVal,igst,cgst,sgst,cess,type:'amendment'});
+  }
+  return notes;
+}
+
+function renderChips2B(){
+  document.getElementById('file-list-2b').innerHTML=files2B.map((f,i)=>`
+    <div class="chip xlsx-2b">
+      <span class="badge">${f.label}</span>
+      <span>${f.file.name.length>35?f.file.name.slice(0,33)+'…':f.file.name}</span>
+      <span class="badge" style="background:rgba(255,255,255,.15)">${f.isFullFormat?'FULL':'B2B'}</span>
+      <span class="rm" data-label="${f.label}" onclick="removeFile2B(this)">✕</span>
+    </div>`).join('');
+  document.getElementById('gen-btn-2b').disabled=files2B.length===0;
+}
+
+function removeFile2B(el){
+  const label=el.dataset.label;
+  files2B=files2B.filter(f=>f.label!==label);
+  renderChips2B();
+}
+
+// ── Process one 2B month into summary object ──
+function process2BMonth(entry){
+  const{y,m,label,data}=entry;
+  const currentFY=getFY(y,m);
+
+  // Parse invoice date to get FY
+  function parseDateStr(s){
+    if(!s)return null;
+    const m1=String(s).match(/(\d{1,2})\/(\d{2})\/(\d{4})/);
+    const m2=String(s).match(/(\d{1,2})-(\d{2})-(\d{4})/);
+    const match=m1||m2; if(!match)return null;
+    return{d:parseInt(match[1]),m:parseInt(match[2]),y:parseInt(match[3])};
+  }
+
+  // Categorise B2B invoices by current vs previous year
+  let currInv=[], prevInv=[];
+  data.b2b.forEach(inv=>{
+    const dt=parseDateStr(inv.invDate);
+    const invFY=dt?getFY(dt.y,dt.m):currentFY;
+    const isPrev=invFY!==currentFY;
+    const obj={...inv,isPrev};
+    if(isPrev)prevInv.push(obj); else currInv.push(obj);
+  });
+
+  // Amendments (B2BA) — treated as positive additions
+  const amendInv=data.b2ba||[];
+
+  // Notes
+  const allNotes=[...(data.cdnr||[]),...(data.dnr||[])];
+  const allNoteAmend=[...(data.cdnra||[]),...(data.dnra||[])];
+
+  function sumInv(list){
+    return list.reduce((a,x)=>({
+      count:a.count+1,
+      invVal:a.invVal+x.invVal,
+      tv:a.tv+x.taxableVal,
+      igst:a.igst+x.igst,
+      cgst:a.cgst+x.cgst,
+      sgst:a.sgst+x.sgst,
+      cess:a.cess+x.cess
+    }),{count:0,invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0});
+  }
+
+  function sumNotes(list, type){
+    const filtered=type?list.filter(n=>n.noteType.toLowerCase().includes(type.toLowerCase())):list;
+    return filtered.reduce((a,x)=>({
+      count:a.count+1,
+      noteVal:a.noteVal+x.noteVal,
+      tv:a.tv+x.taxableVal,
+      igst:a.igst+x.igst,
+      cgst:a.cgst+x.cgst,
+      sgst:a.sgst+x.sgst,
+      cess:a.cess+x.cess
+    }),{count:0,noteVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0});
+  }
+
+  const curr=sumInv(currInv);
+  const prev=sumInv(prevInv);
+  const amend=sumInv(amendInv);
+  const cn=sumNotes(allNotes,'credit');
+  const dn=sumNotes(allNotes,'debit');
+  const amendCN=sumNotes(allNoteAmend,'credit');
+  const amendDN=sumNotes(allNoteAmend,'debit');
+
+  // Combined totals for B2B (current + previous)
+  const totalB2B={
+    count:curr.count+prev.count,
+    invVal:curr.invVal+prev.invVal,
+    tv:curr.tv+prev.tv,
+    igst:curr.igst+prev.igst,
+    cgst:curr.cgst+prev.cgst,
+    sgst:curr.sgst+prev.sgst,
+    cess:curr.cess+prev.cess
+  };
+
+  // Net adjustments: amendments add, CN reduce, DN add, amendment CN reduce, amendment DN add
+  const netAdj={
+    tv: amend.tv + dn.tv + amendDN.tv - cn.tv - amendCN.tv,
+    igst: amend.igst + dn.igst + amendDN.igst - cn.igst - amendCN.igst,
+    cgst: amend.cgst + dn.cgst + amendDN.cgst - cn.cgst - amendCN.cgst,
+    sgst: amend.sgst + dn.sgst + amendDN.sgst - cn.sgst - amendCN.sgst,
+    cess: amend.cess + dn.cess + amendDN.cess - cn.cess - amendCN.cess
+  };
+
+  const totalTax=v=>v.igst+v.cgst+v.sgst+v.cess;
+
+  return{
+    label,y,m,currentFY,
+    curr,prev,
+    totalB2B,
+    amend,cn,dn,amendCN,amendDN,
+    netAdj,
+    totalTax,
+    // Net purchases
+    net:{
+      count:totalB2B.count,
+      tv:totalB2B.tv+netAdj.tv,
+      igst:totalB2B.igst+netAdj.igst,
+      cgst:totalB2B.cgst+netAdj.cgst,
+      sgst:totalB2B.sgst+netAdj.sgst,
+      cess:totalB2B.cess+netAdj.cess
+    },
+    rawB2B:data.b2b,
+    rawAmend:amendInv,
+    rawCN:allNotes.filter(n=>n.noteType.toLowerCase().includes('credit')),
+    rawDN:allNotes.filter(n=>n.noteType.toLowerCase().includes('debit'))
+  };
+}
+
+// ── Render 2B preview ──
+function renderPreview2B(months){
+  document.getElementById('preview').style.display='block';
+  document.getElementById('prev-title').textContent='GSTR-2B Grand Totals';
+  document.getElementById('prev-month-title').textContent='Month-wise Breakdown';
+
+  // Grand totals
+  let G={invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,netTv:0,netIgst:0,netCgst:0,netSgst:0,netCess:0};
+  months.forEach(mo=>{
+    G.invVal+=mo.totalB2B.invVal; G.tv+=mo.totalB2B.tv;
+    G.igst+=mo.totalB2B.igst; G.cgst+=mo.totalB2B.cgst;
+    G.sgst+=mo.totalB2B.sgst; G.cess+=mo.totalB2B.cess;
+    G.netTv+=mo.net.tv; G.netIgst+=mo.net.igst;
+    G.netCgst+=mo.net.cgst; G.netSgst+=mo.net.sgst; G.netCess+=mo.net.cess;
+  });
+  const netTax=G.netIgst+G.netCgst+G.netSgst+G.netCess;
+  document.getElementById('totals-bar-wrap').innerHTML=`
+    <div class="totals-bar teal">
+      ${[['Total Invoices',months.reduce((s,m)=>s+m.totalB2B.count,0)],
+         ['Total Taxable Value','₹'+fmt(G.tv)],
+         ['Total IGST','₹'+fmt(G.igst)],
+         ['Total CGST','₹'+fmt(G.cgst)],
+         ['Total SGST','₹'+fmt(G.sgst)],
+         ['Net Taxable','₹'+fmt(G.netTv)],
+         ['Net Tax','₹'+fmt(netTax)],
+         ['Net Purchase Total','₹'+fmt(G.netTv+netTax)]
+       ].map(([l,v])=>`<div class="t-item"><div class="tl">${l}</div><div class="tv">${v}</div></div>`).join('')}
+    </div>`;
+
+  const COLORS=['#00695C','#1F4E79','#375623','#7B2C2C','#4C3665','#7B6000','#1F3864','#006B3C'];
+  document.getElementById('month-grid').innerHTML=months.map((mo,ri)=>{
+    const col=COLORS[ri%COLORS.length];
+    const tt=v=>v.igst+v.cgst+v.sgst+v.cess;
+    const ttB2B=tt(mo.totalB2B);
+    const ttAmend=tt(mo.amend);
+    const ttCN=tt(mo.cn)+tt(mo.amendCN);
+    const ttDN=tt(mo.dn)+tt(mo.amendDN);
+    const netTax=tt(mo.net);
+    const cnTv=mo.cn.tv+mo.amendCN.tv;
+    const dnTv=mo.dn.tv+mo.amendDN.tv;
+    const amendTv=mo.amend.tv;
+    const rows=[
+      {cls:'row-purchase',label:`1  Current Year Invoices (${mo.curr.count})`,inv:mo.curr.count,tv:mo.curr.tv,tax:tt(mo.curr),gt:mo.curr.tv+tt(mo.curr)},
+      {cls:'row-dn',label:`2  Previous Year Invoices (${mo.prev.count})`,inv:mo.prev.count,tv:mo.prev.tv,tax:tt(mo.prev),gt:mo.prev.tv+tt(mo.prev)},
+      {cls:'row-purchase',label:`3  Total B2B Invoices (${mo.totalB2B.count})`,inv:mo.totalB2B.count,tv:mo.totalB2B.tv,tax:ttB2B,gt:mo.totalB2B.tv+ttB2B},
+      {cls:'row-amend',label:`4  Add: Amendments (${mo.amend.count})`,inv:mo.amend.count,tv:amendTv,tax:ttAmend,gt:amendTv+ttAmend},
+      {cls:'row-dn',label:`5  Add: Debit Notes (${mo.dn.count+mo.amendDN.count})`,inv:mo.dn.count+mo.amendDN.count,tv:dnTv,tax:ttDN,gt:dnTv+ttDN},
+      {cls:'row-cn',label:`6  Less: Credit Notes (${mo.cn.count+mo.amendCN.count})`,inv:mo.cn.count+mo.amendCN.count,tv:cnTv,tax:ttCN,gt:cnTv+ttCN},
+      {cls:'row-net',label:'7  Net Purchases',inv:mo.net.count,tv:mo.net.tv,tax:netTax,gt:mo.net.tv+netTax},
+    ];
+    return`<div class="month-card">
+      <div class="card-hdr" style="background:${col}">${mo.label}
+        <span style="font-size:10px;opacity:.8">${mo.currentFY}</span>
+      </div>
+      <div class="card-body">
+        ${rows.map(rw=>`<div class="row-block ${rw.cls}">
+          <div class="rb-label" style="grid-column:1/5">${rw.label}</div>
+          <div class="rb-key">Inv.</div><div class="rb-val">${rw.inv||'—'}</div>
+          <div class="rb-key">Taxable</div><div class="rb-val">₹${fmt(rw.tv)}</div>
+          <div class="rb-key">Tax</div><div class="rb-val">₹${fmt(rw.tax)}</div>
+          <div class="rb-key">Total</div><div class="rb-val"><strong>₹${fmt(rw.gt)}</strong></div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Render 2A preview ──
+function renderPreview2A(results, dcnByMonth){
+  document.getElementById('preview').style.display='block';
+  document.getElementById('prev-title').textContent='GSTR-2A Grand Totals — FY Summary';
+  document.getElementById('prev-month-title').textContent='Month-wise Breakdown';
+  const G={invVal:0,tv:0,igst:0,cgst:0,sgst:0,cess:0,totalTax:0,gt:0,netGt:0};
+  results.forEach(r=>{ const d=dcnByMonth.get(`${r.y}-${r.m}`); G.invVal+=r.invVal;G.tv+=r.tv;G.igst+=r.igst;G.cgst+=r.cgst;G.sgst+=r.sgst;G.cess+=r.cess;G.totalTax+=r.totalTax;G.gt+=r.gt;G.netGt+=r.gt+(d?d.netGrand:0); });
+  document.getElementById('totals-bar-wrap').innerHTML=`
+    <div class="totals-bar navy">
+      ${[['Total Invoice Value',G.invVal],['Total Taxable Value',G.tv],['Total IGST',G.igst],['Total CGST',G.cgst],['Total SGST',G.sgst],['Total Tax',G.totalTax],['Gross Total',G.gt],['Net Purchase Total',G.netGt]].map(([l,v])=>`<div class="t-item"><div class="tl">${l}</div><div class="tv">₹${fmt(v)}</div></div>`).join('')}
+    </div>`;
+
+  const CARD_COLORS=['#1F4E79','#375623','#7B2C2C','#4C3665','#7B6000','#1F3864','#006B3C','#5C3A1E','#1B4F72','#512E5F','#1A5276'];
+  document.getElementById('month-grid').innerHTML=results.map((r,ri)=>{
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    const dn_gt=(d?d.dnTv+d.dnIg+d.dnCg+d.dnSg+d.dnCe:0);
+    const cn_gt=(d?d.cnTv+d.cnIg+d.cnCg+d.cnSg+d.cnCe:0);
+    const netGt=r.gt+(d?d.netGrand:0);
+    const col=CARD_COLORS[ri%CARD_COLORS.length];
+    const rows=[
+      {cls:'row-purchase',label:'1  Total Purchases',inv:r.totalInv,iv:r.invVal,tv:r.tv,tax:r.totalTax,gt:r.gt},
+      {cls:'row-dn',label:'2  Add: Debit Notes',inv:d?d.dnCount:0,iv:d?d.dnNv:0,tv:d?d.dnTv:0,tax:d?d.dnIg+d.dnCg+d.dnSg+d.dnCe:0,gt:dn_gt},
+      {cls:'row-cn',label:'3  Less: Credit Notes',inv:d?d.cnCount:0,iv:d?d.cnNv:0,tv:d?d.cnTv:0,tax:d?d.cnIg+d.cnCg+d.cnSg+d.cnCe:0,gt:cn_gt},
+      {cls:'row-net',label:'4  Net Purchases',inv:r.totalInv,iv:r.invVal+(d?d.netNv:0),tv:r.tv+(d?d.netTv:0),tax:r.totalTax+(d?d.netTax:0),gt:netGt},
+    ];
+    const lateHtml=r.late.length?`<div class="late-box"><strong>⚠ ${r.late.length} Late Filed Invoice(s)</strong>${r.late.map(x=>`${x.invNo} → ${MN[x.im[1]]}-${x.im[0]}${x.crossFY?' ⚠ DIFF FY':''}`).join(' · ')}</div>`:'';
+    return`<div class="month-card">
+      <div class="card-hdr" style="background:${col}">${r.label}
+        ${r.late.length?`<span class="late-flag">⚠ ${r.late.length} late</span>`:''}
+      </div>
+      <div class="card-body">
+        ${rows.map(rw=>`<div class="row-block ${rw.cls}">
+          <div class="rb-label" style="grid-column:1/5">${rw.label}</div>
+          <div class="rb-key">Inv.</div><div class="rb-val">${rw.inv||'—'}</div>
+          <div class="rb-key">Taxable</div><div class="rb-val">₹${fmt(rw.tv)}</div>
+          <div class="rb-key">Tax</div><div class="rb-val">₹${fmt(rw.tax)}</div>
+          <div class="rb-key">Total</div><div class="rb-val"><strong>₹${fmt(rw.gt)}</strong></div>
+        </div>`).join('')}${lateHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL BUILDER — SHARED STYLES
+// ═══════════════════════════════════════════════════════════════
+const PAL=[
+  {dark:'1F4E79',light:'D6E4F0',mid:'2E75B6'},{dark:'375623',light:'E2EFDA',mid:'548235'},
+  {dark:'7B2C2C',light:'FCE4D6',mid:'C0392B'},{dark:'4C3665',light:'EAE0F4',mid:'7B5EA7'},
+  {dark:'7B6000',light:'FFF2CC',mid:'BF8F00'},{dark:'1F3864',light:'D6E4F0',mid:'2E75B6'},
+  {dark:'006B3C',light:'D4EDDA',mid:'28A745'},{dark:'5C3A1E',light:'FDE8D0',mid:'A0522D'},
+  {dark:'006064',light:'E0F7FA',mid:'00838F'},{dark:'512E5F',light:'E8DAEF',mid:'8E44AD'},
+  {dark:'1A5276',light:'D6EAF8',mid:'2471A3'},
+];
+const OD='C55A11',OL='FCE4D6',GD='375623',GL='E2EFDA';
+const DND='1F4E79',DNL='D6E4F0',CND='7B2C2C',CNL='FCECEA';
+const AMD='4C3665',AML='EAE0F4'; // amendment color
+const NF='#,##0.00';
+
+function argb(h){return'FF'+h.toUpperCase();}
+const TB={top:{style:'thin',color:{argb:'FFB8CCE4'}},bottom:{style:'thin',color:{argb:'FFB8CCE4'}},left:{style:'thin',color:{argb:'FFB8CCE4'}},right:{style:'thin',color:{argb:'FFB8CCE4'}}};
+
+function st(cell,val,bg,fc='FFFFFF',bold=true,sz=10,h='center',wrap=false,ind=0,nf=null,it=false){
+  if(val!==undefined)cell.value=val;
+  if(bg)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(bg)}};
+  cell.font={name:'Calibri',size:sz,bold,italic:it,color:{argb:argb(fc)}};
+  cell.alignment={horizontal:h,vertical:'middle',wrapText:wrap,indent:ind};
+  cell.border=TB; if(nf)cell.numFmt=nf;
+}
+
+function bk(ws,r,c,bg){const cell=ws.getCell(r,c);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(bg)}};cell.border=TB;}
+
+function sHdr(ws,row,text,nc,bg,ht=20){
+  ws.mergeCells(row,1,row,nc);
+  st(ws.getCell(row,1),text,bg,'FFFFFF',true,10,'left',false,1);
+  for(let c=2;c<=nc;c++)ws.getCell(row,c).border=TB;
+  ws.getRow(row).height=ht;
+}
+
+function colW(ws,widths){widths.forEach((w,i)=>{ws.getColumn(i+1).width=w;});}
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL BUILDER — GSTR-2B
+// ═══════════════════════════════════════════════════════════════
+async function build2BExcel(months){
+  const wb=new ExcelJS.Workbook();
+  wb.creator='GST Report Tool'; wb.created=new Date();
+
+  const TEAL='006064', TEAL_L='E0F7FA', TEAL_M='00838F';
+  const NC=11;
+
+  // ─────────────────────────────────────────────────────────────
+  // SHEET 1: Annual Summary
+  // ─────────────────────────────────────────────────────────────
+  const ws=wb.addWorksheet('Annual Summary (2B)');
+  colW(ws,[22,36,8,22,14,14,18,12,18,22]);
+  ws.views=[{state:'frozen',xSplit:0,ySplit:5}];
+
+  ws.mergeCells(1,1,1,NC);
+  st(ws.getCell(1,1),'GSTR-2B  —  Annual Purchase Summary  |  Current Year + Previous Year  |  With CN / DN / Amendment Adjustments',TEAL,'FFFFFF',true,13,'center');
+  ws.getRow(1).height=32;
+
+  ws.mergeCells(2,1,2,NC);
+  st(ws.getCell(2,1),'Row 1: Current Year B2B  |  Row 2: Prev Year B2B  |  Row 3: Total B2B  |  Row 4: Add Amendments  |  Row 5: Add Debit Notes  |  Row 6: Less Credit Notes  |  Row 7: Net Purchases',TEAL_M,'FFFFFF',false,9,'center',true,0,null,true);
+  ws.getRow(2).height=14;
+
+  ws.mergeCells(3,1,3,NC);
+  st(ws.getCell(3,1),'Taxable, IGST, CGST, SGST, Cess are from the GSTR-2B data  ·  Amendments / DN increase, CN decrease the net total','34495E','FFFFFF',false,9,'center',true,0,null,true);
+  ws.getRow(3).height=13;
+
+  ['Month / Row','GSTIN/Description','Inv.','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)','Total Tax (₹)','Grand Total (₹)']
+    .forEach((h,i)=>{st(ws.getCell(4,i+1),h,TEAL,'FFFFFF',true,9,'center',true);});
+  ws.getRow(4).height=26;
+
+  const GAcc={
+    currTv:0,  currIg:0,  currCg:0,  currSg:0,  currCe:0,
+    prevTv:0,  prevIg:0,  prevCg:0,  prevSg:0,  prevCe:0,
+    b2bTv:0,   b2bIg:0,   b2bCg:0,   b2bSg:0,   b2bCe:0,
+    amendTv:0, amendIg:0, amendCg:0, amendSg:0, amendCe:0,
+    dnTv:0,    dnIg:0,    dnCg:0,    dnSg:0,    dnCe:0,
+    cnTv:0,    cnIg:0,    cnCg:0,    cnSg:0,    cnCe:0,
+    netTv:0,   netIg:0,   netCg:0,   netSg:0,   netCe:0,
+  };
+
+  let ROW=5;
+  months.forEach((mo,ri)=>{
+    const pal=PAL[ri%PAL.length];
+    const{dark:DARK,light:LIGHT}=pal;
+
+    function tt(o){return(o.igst||0)+(o.cgst||0)+(o.sgst||0)+(o.cess||0);}
+
+    const rows7=[
+      {label:`1  Current Year B2B (${mo.curr.count})`,lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,
+       vals:[mo.curr.count,mo.curr.tv,mo.curr.igst,mo.curr.cgst,mo.curr.sgst,mo.curr.cess,tt(mo.curr),mo.curr.tv+tt(mo.curr)]},
+      {label:`2  Previous Year B2B (${mo.prev.count})`,lbg:OD,vbg:OL,vfc:OD,bold:false,
+       vals:[mo.prev.count,mo.prev.tv,mo.prev.igst,mo.prev.cgst,mo.prev.sgst,mo.prev.cess,tt(mo.prev),mo.prev.tv+tt(mo.prev)]},
+      {label:`3  Total B2B (${mo.totalB2B.count})`,lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:true,
+       vals:[mo.totalB2B.count,mo.totalB2B.tv,mo.totalB2B.igst,mo.totalB2B.cgst,mo.totalB2B.sgst,mo.totalB2B.cess,tt(mo.totalB2B),mo.totalB2B.tv+tt(mo.totalB2B)]},
+      {label:`4  Add: Amendments (${mo.amend.count})`,lbg:AMD,vbg:AML,vfc:AMD,bold:false,
+       vals:[mo.amend.count,mo.amend.tv||null,mo.amend.igst||null,mo.amend.cgst||null,mo.amend.sgst||null,mo.amend.cess||null,tt(mo.amend)||null,(mo.amend.tv+tt(mo.amend))||null]},
+      {label:`5  Add: Debit Notes (${mo.dn.count+mo.amendDN.count})`,lbg:DND,vbg:DNL,vfc:DND,bold:false,
+       vals:[(mo.dn.count+mo.amendDN.count)||null,(mo.dn.tv+mo.amendDN.tv)||null,(mo.dn.igst+mo.amendDN.igst)||null,(mo.dn.cgst+mo.amendDN.cgst)||null,(mo.dn.sgst+mo.amendDN.sgst)||null,(mo.dn.cess+mo.amendDN.cess)||null,(tt(mo.dn)+tt(mo.amendDN))||null,(mo.dn.tv+mo.amendDN.tv+tt(mo.dn)+tt(mo.amendDN))||null]},
+      {label:`6  Less: Credit Notes (${mo.cn.count+mo.amendCN.count})`,lbg:CND,vbg:CNL,vfc:CND,bold:false,
+       vals:[(mo.cn.count+mo.amendCN.count)||null,(mo.cn.tv+mo.amendCN.tv)||null,(mo.cn.igst+mo.amendCN.igst)||null,(mo.cn.cgst+mo.amendCN.cgst)||null,(mo.cn.sgst+mo.amendCN.sgst)||null,(mo.cn.cess+mo.amendCN.cess)||null,(tt(mo.cn)+tt(mo.amendCN))||null,(mo.cn.tv+mo.amendCN.tv+tt(mo.cn)+tt(mo.amendCN))||null]},
+      {label:'7  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,
+       vals:[mo.net.count,mo.net.tv,mo.net.igst,mo.net.cgst,mo.net.sgst,mo.net.cess,tt(mo.net),mo.net.tv+tt(mo.net)]},
+    ];
+
+    ws.mergeCells(ROW,1,ROW+6,1);
+    const mc=ws.getCell(ROW,1); mc.value=mo.label+'\n'+mo.currentFY;
+    mc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(DARK)}};
+    mc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+    mc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; mc.border=TB;
+
+    rows7.forEach((rw,sub)=>{
+      const rr=ROW+sub; ws.getRow(rr).height=20;
+      st(ws.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+      rw.vals.forEach((v,i)=>{
+        const c=ws.getCell(rr,i+3); c.value=v||null;
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+        c.font={name:'Calibri',size:10,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+        c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+        if(typeof v==='number'&&v)c.numFmt=NF;
+      });
+    });
+    ROW+=7;
+
+    for(let c=1;c<=NC;c++){const cell=ws.getCell(ROW,c);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EDF2'}};cell.border={bottom:{style:'thin',color:{argb:'FF1F3864'}}};}
+    ws.getRow(ROW).height=3; ROW++;
+
+    // Accumulate all tax components separately
+    GAcc.currTv+=mo.curr.tv;     GAcc.currIg+=mo.curr.igst;   GAcc.currCg+=mo.curr.cgst;   GAcc.currSg+=mo.curr.sgst;   GAcc.currCe+=mo.curr.cess;
+    GAcc.prevTv+=mo.prev.tv;     GAcc.prevIg+=mo.prev.igst;   GAcc.prevCg+=mo.prev.cgst;   GAcc.prevSg+=mo.prev.sgst;   GAcc.prevCe+=mo.prev.cess;
+    GAcc.b2bTv+=mo.totalB2B.tv;  GAcc.b2bIg+=mo.totalB2B.igst; GAcc.b2bCg+=mo.totalB2B.cgst; GAcc.b2bSg+=mo.totalB2B.sgst; GAcc.b2bCe+=mo.totalB2B.cess;
+    GAcc.amendTv+=mo.amend.tv;   GAcc.amendIg+=mo.amend.igst; GAcc.amendCg+=mo.amend.cgst; GAcc.amendSg+=mo.amend.sgst; GAcc.amendCe+=mo.amend.cess;
+    GAcc.dnTv+=mo.dn.tv+mo.amendDN.tv; GAcc.dnIg+=mo.dn.igst+mo.amendDN.igst; GAcc.dnCg+=mo.dn.cgst+mo.amendDN.cgst; GAcc.dnSg+=mo.dn.sgst+mo.amendDN.sgst; GAcc.dnCe+=mo.dn.cess+mo.amendDN.cess;
+    GAcc.cnTv+=mo.cn.tv+mo.amendCN.tv; GAcc.cnIg+=mo.cn.igst+mo.amendCN.igst; GAcc.cnCg+=mo.cn.cgst+mo.amendCN.cgst; GAcc.cnSg+=mo.cn.sgst+mo.amendCN.sgst; GAcc.cnCe+=mo.cn.cess+mo.amendCN.cess;
+    GAcc.netTv+=mo.net.tv;       GAcc.netIg+=mo.net.igst;     GAcc.netCg+=mo.net.cgst;     GAcc.netSg+=mo.net.sgst;     GAcc.netCe+=mo.net.cess;
+  });
+
+  // ── Grand Total block (7 rows) — full tax-wise bifurcation ──
+  ws.mergeCells(ROW,1,ROW+6,1);
+  const gtc=ws.getCell(ROW,1); gtc.value='GRAND\nTOTAL';
+  gtc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(TEAL)}};
+  gtc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+  gtc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; gtc.border=TB;
+
+  function gTax(ig,cg,sg,ce){return ig+cg+sg+ce;}
+
+  const gt7=[
+    {label:'1  Current Year B2B',lbg:TEAL,vbg:TEAL_L,vfc:'1F3864',bold:false,
+     vals:[null,GAcc.currTv,GAcc.currIg||null,GAcc.currCg||null,GAcc.currSg||null,GAcc.currCe||null,gTax(GAcc.currIg,GAcc.currCg,GAcc.currSg,GAcc.currCe)||null,GAcc.currTv+gTax(GAcc.currIg,GAcc.currCg,GAcc.currSg,GAcc.currCe)]},
+    {label:'2  Previous Year B2B',lbg:OD,vbg:OL,vfc:OD,bold:false,
+     vals:[null,GAcc.prevTv,GAcc.prevIg||null,GAcc.prevCg||null,GAcc.prevSg||null,GAcc.prevCe||null,gTax(GAcc.prevIg,GAcc.prevCg,GAcc.prevSg,GAcc.prevCe)||null,GAcc.prevTv+gTax(GAcc.prevIg,GAcc.prevCg,GAcc.prevSg,GAcc.prevCe)]},
+    {label:'3  Total B2B',lbg:TEAL,vbg:TEAL_L,vfc:'1F3864',bold:true,
+     vals:[null,GAcc.b2bTv,GAcc.b2bIg||null,GAcc.b2bCg||null,GAcc.b2bSg||null,GAcc.b2bCe||null,gTax(GAcc.b2bIg,GAcc.b2bCg,GAcc.b2bSg,GAcc.b2bCe)||null,GAcc.b2bTv+gTax(GAcc.b2bIg,GAcc.b2bCg,GAcc.b2bSg,GAcc.b2bCe)]},
+    {label:'4  Add: Amendments',lbg:AMD,vbg:AML,vfc:AMD,bold:false,
+     vals:[null,GAcc.amendTv||null,GAcc.amendIg||null,GAcc.amendCg||null,GAcc.amendSg||null,GAcc.amendCe||null,gTax(GAcc.amendIg,GAcc.amendCg,GAcc.amendSg,GAcc.amendCe)||null,(GAcc.amendTv+gTax(GAcc.amendIg,GAcc.amendCg,GAcc.amendSg,GAcc.amendCe))||null]},
+    {label:'5  Add: Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,
+     vals:[null,GAcc.dnTv||null,GAcc.dnIg||null,GAcc.dnCg||null,GAcc.dnSg||null,GAcc.dnCe||null,gTax(GAcc.dnIg,GAcc.dnCg,GAcc.dnSg,GAcc.dnCe)||null,(GAcc.dnTv+gTax(GAcc.dnIg,GAcc.dnCg,GAcc.dnSg,GAcc.dnCe))||null]},
+    {label:'6  Less: Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,
+     vals:[null,GAcc.cnTv||null,GAcc.cnIg||null,GAcc.cnCg||null,GAcc.cnSg||null,GAcc.cnCe||null,gTax(GAcc.cnIg,GAcc.cnCg,GAcc.cnSg,GAcc.cnCe)||null,(GAcc.cnTv+gTax(GAcc.cnIg,GAcc.cnCg,GAcc.cnSg,GAcc.cnCe))||null]},
+    {label:'7  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,
+     vals:[null,GAcc.netTv,GAcc.netIg||null,GAcc.netCg||null,GAcc.netSg||null,GAcc.netCe||null,gTax(GAcc.netIg,GAcc.netCg,GAcc.netSg,GAcc.netCe)||null,GAcc.netTv+gTax(GAcc.netIg,GAcc.netCg,GAcc.netSg,GAcc.netCe)]},
+  ];
+
+  gt7.forEach((rw,sub)=>{
+    const rr=ROW+sub; ws.getRow(rr).height=24;
+    st(ws.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,10,'left',false,1);
+    rw.vals.forEach((v,i)=>{
+      const c=ws.getCell(rr,i+3); c.value=v||null;
+      c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+      c.font={name:'Calibri',size:11,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+      c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+      if(typeof v==='number'&&v)c.numFmt=NF;
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // SHEETS: Monthly Detail for each month
+  // ─────────────────────────────────────────────────────────────
+  months.forEach((mo,idx)=>{
+    const pal=PAL[idx%PAL.length];
+    const{dark:DARK,light:LIGHT,mid:MID}=pal;
+    const wm=wb.addWorksheet(mo.label);
+    const MNC=10; colW(wm,[30,36,20,14,22,14,14,16,12,12]);
+    let MR=1;
+    function tt(o){return(o.igst||0)+(o.cgst||0)+(o.sgst||0)+(o.cess||0);}
+
+    wm.mergeCells(MR,1,MR,MNC);
+    st(wm.getCell(MR,1),`GSTR-2B Purchase Summary  —  ${mo.label}  |  ${mo.currentFY}`,DARK,'FFFFFF',true,14,'center');
+    wm.getRow(MR).height=34; MR++;
+
+    wm.mergeCells(MR,1,MR,MNC);
+    st(wm.getCell(MR,1),`  ${mo.totalB2B.count} B2B Invoices  ·  ${mo.curr.count} Current Year  ·  ${mo.prev.count} Previous Year  ·  ${mo.amend.count} Amendments  ·  ${mo.dn.count+mo.amendDN.count} Debit Notes  ·  ${mo.cn.count+mo.amendCN.count} Credit Notes`,
+       MID,'FFFFFF',false,9,'left',true,1,null,true);
+    wm.getRow(MR).height=15; MR+=2;
+
+    // Summary block
+    sHdr(wm,MR,`  📋  Monthly Summary  —  ${mo.label}`,MNC,DARK,20); MR++;
+    ['Row','Description','Inv.','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','Total Tax (₹)','Grand Total (₹)']
+      .forEach((h,i)=>st(wm.getCell(MR,i+1),h,MID,'FFFFFF',true,9,'center',true));
+    wm.getRow(MR).height=22; MR++;
+
+    const sumRows=[
+      {rn:'1',label:`Current Year B2B`,lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,
+       vals:[mo.curr.count,mo.curr.tv,mo.curr.igst,mo.curr.cgst,mo.curr.sgst,mo.curr.cess,tt(mo.curr),mo.curr.tv+tt(mo.curr)]},
+      {rn:'2',label:`Previous Year B2B`,lbg:OD,vbg:OL,vfc:OD,bold:false,
+       vals:[mo.prev.count,mo.prev.tv,mo.prev.igst,mo.prev.cgst,mo.prev.sgst,mo.prev.cess,tt(mo.prev),mo.prev.tv+tt(mo.prev)]},
+      {rn:'3',label:`Total B2B`,lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:true,
+       vals:[mo.totalB2B.count,mo.totalB2B.tv,mo.totalB2B.igst,mo.totalB2B.cgst,mo.totalB2B.sgst,mo.totalB2B.cess,tt(mo.totalB2B),mo.totalB2B.tv+tt(mo.totalB2B)]},
+      {rn:'4',label:`Add: Amendments (${mo.amend.count})`,lbg:AMD,vbg:AML,vfc:AMD,bold:false,
+       vals:[mo.amend.count||null,mo.amend.tv||null,mo.amend.igst||null,mo.amend.cgst||null,mo.amend.sgst||null,mo.amend.cess||null,tt(mo.amend)||null,(mo.amend.tv+tt(mo.amend))||null]},
+      {rn:'5',label:`Add: Debit Notes (${mo.dn.count+mo.amendDN.count})`,lbg:DND,vbg:DNL,vfc:DND,bold:false,
+       vals:[(mo.dn.count+mo.amendDN.count)||null,(mo.dn.tv+mo.amendDN.tv)||null,(mo.dn.igst+mo.amendDN.igst)||null,(mo.dn.cgst+mo.amendDN.cgst)||null,(mo.dn.sgst+mo.amendDN.sgst)||null,(mo.dn.cess+mo.amendDN.cess)||null,(tt(mo.dn)+tt(mo.amendDN))||null,(mo.dn.tv+mo.amendDN.tv+tt(mo.dn)+tt(mo.amendDN))||null]},
+      {rn:'6',label:`Less: Credit Notes (${mo.cn.count+mo.amendCN.count})`,lbg:CND,vbg:CNL,vfc:CND,bold:false,
+       vals:[(mo.cn.count+mo.amendCN.count)||null,(mo.cn.tv+mo.amendCN.tv)||null,(mo.cn.igst+mo.amendCN.igst)||null,(mo.cn.cgst+mo.amendCN.cgst)||null,(mo.cn.sgst+mo.amendCN.sgst)||null,(mo.cn.cess+mo.amendCN.cess)||null,(tt(mo.cn)+tt(mo.amendCN))||null,(mo.cn.tv+mo.amendCN.tv+tt(mo.cn)+tt(mo.amendCN))||null]},
+      {rn:'7',label:'Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,
+       vals:[mo.net.count,mo.net.tv,mo.net.igst,mo.net.cgst,mo.net.sgst,mo.net.cess,tt(mo.net),mo.net.tv+tt(mo.net)]},
+    ];
+
+    sumRows.forEach(rw=>{
+      wm.getRow(MR).height=22;
+      st(wm.getCell(MR,1),rw.rn,rw.lbg,'FFFFFF',true,10,'center');
+      st(wm.getCell(MR,2),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+      rw.vals.forEach((v,i)=>{
+        const c=wm.getCell(MR,i+3); c.value=v||null;
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}};
+        c.font={name:'Calibri',size:10,bold:rw.bold,color:{argb:argb(rw.vfc)}};
+        c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB;
+        if(typeof v==='number'&&v)c.numFmt=NF;
+      });
+      MR++;
+    });
+    MR++;
+
+    // ── Invoice Detail: Current Year ──
+    if(mo.rawB2B.filter(x=>!x.isPrev).length){
+      const currList=mo.rawB2B.filter(x=>!x.isPrev);
+      sHdr(wm,MR,`  📄  Current Year B2B Invoices  (${currList.length})`,MNC,DARK,20); MR++;
+      ['GSTIN','Trade Name','Invoice No','Invoice Date','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','ITC Avail']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,MID,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+      currList.forEach((inv,i)=>{
+        const alt=i%2===0?LIGHT:'FFFFFF'; wm.getRow(MR).height=18;
+        [inv.gstin,inv.tradeName||getTradeName(inv.gstin),inv.invNo,inv.invDate,inv.taxableVal,inv.igst,inv.cgst,inv.sgst,inv.cess,inv.itcAvail||''].forEach((v,ci)=>{
+          const c=wm.getCell(MR,ci+1); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+          c.font={name:'Calibri',size:9,bold:false,color:{argb:argb('1F3864')}};
+          c.alignment={horizontal:ci>=4&&ci<=8?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+          if(ci>=4&&ci<=8&&typeof v==='number'&&v)c.numFmt=NF;
+        });
+        MR++;
+      });
+      MR++;
+    }
+
+    // ── Invoice Detail: Previous Year ──
+    if(mo.rawB2B.filter(x=>x.isPrev).length){
+      const prevList=mo.rawB2B.filter(x=>x.isPrev);
+      sHdr(wm,MR,`  📅  Previous Year B2B Invoices  (${prevList.length})  —  Filed Late`,MNC,OD,20); MR++;
+      ['GSTIN','Trade Name','Invoice No','Invoice Date','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','ITC Avail']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,OD,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+      prevList.forEach((inv,i)=>{
+        const alt=i%2===0?OL:'FFFFFF'; wm.getRow(MR).height=18;
+        [inv.gstin,inv.tradeName||getTradeName(inv.gstin),inv.invNo,inv.invDate,inv.taxableVal,inv.igst,inv.cgst,inv.sgst,inv.cess,inv.itcAvail||''].forEach((v,ci)=>{
+          const c=wm.getCell(MR,ci+1); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+          c.font={name:'Calibri',size:9,bold:false,color:{argb:argb(OD)}};
+          c.alignment={horizontal:ci>=4&&ci<=8?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+          if(ci>=4&&ci<=8&&typeof v==='number'&&v)c.numFmt=NF;
+        });
+        MR++;
+      });
+      MR++;
+    }
+
+    // ── Amendments ──
+    if(mo.rawAmend.length){
+      sHdr(wm,MR,`  🔄  Invoice Amendments  (${mo.rawAmend.length})`,MNC,AMD,20); MR++;
+      ['GSTIN','Trade Name','Orig Inv No','Orig Date','Rev Inv No','Rev Date','Taxable (₹)','IGST (₹)','CGST (₹)','SGST (₹)']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,AMD,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+      mo.rawAmend.forEach((a,i)=>{
+        const alt=i%2===0?AML:'FFFFFF'; wm.getRow(MR).height=18;
+        [a.gstin,a.tradeName||getTradeName(a.gstin),a.origInvNo,a.origDate,a.revInvNo,a.revInvDate,a.taxableVal,a.igst,a.cgst,a.sgst].forEach((v,ci)=>{
+          const c=wm.getCell(MR,ci+1); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+          c.font={name:'Calibri',size:9,bold:false,color:{argb:argb(AMD)}};
+          c.alignment={horizontal:ci>=6?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+          if(ci>=6&&typeof v==='number'&&v)c.numFmt=NF;
+        });
+        MR++;
+      });
+      MR++;
+    }
+
+    // ── Credit Notes ──
+    if(mo.rawCN.length){
+      sHdr(wm,MR,`  📝  Credit Notes  (${mo.rawCN.length})`,MNC,CND,20); MR++;
+      ['GSTIN','Trade Name','Note No','Note Date','Taxable (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','Supply Type']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,CND,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+      mo.rawCN.forEach((n,i)=>{
+        const alt=i%2===0?CNL:'FFFFFF'; wm.getRow(MR).height=18;
+        [n.gstin,n.tradeName||getTradeName(n.gstin),n.noteNo,n.noteDate,n.taxableVal,n.igst,n.cgst,n.sgst,n.cess,n.noteSupplyType||''].forEach((v,ci)=>{
+          const c=wm.getCell(MR,ci+1); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+          c.font={name:'Calibri',size:9,bold:false,color:{argb:argb(CND)}};
+          c.alignment={horizontal:ci>=4&&ci<=8?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+          if(ci>=4&&ci<=8&&typeof v==='number'&&v)c.numFmt=NF;
+        });
+        MR++;
+      });
+      MR++;
+    }
+
+    // ── Debit Notes ──
+    if(mo.rawDN.length){
+      sHdr(wm,MR,`  📋  Debit Notes  (${mo.rawDN.length})`,MNC,DND,20); MR++;
+      ['GSTIN','Trade Name','Note No','Note Date','Taxable (₹)','IGST (₹)','CGST (₹)','SGST (₹)','Cess (₹)','Supply Type']
+        .forEach((h,i)=>st(wm.getCell(MR,i+1),h,DND,'FFFFFF',true,9,'center',true));
+      wm.getRow(MR).height=22; MR++;
+      mo.rawDN.forEach((n,i)=>{
+        const alt=i%2===0?DNL:'FFFFFF'; wm.getRow(MR).height=18;
+        [n.gstin,n.tradeName||getTradeName(n.gstin),n.noteNo,n.noteDate,n.taxableVal,n.igst,n.cgst,n.sgst,n.cess,n.noteSupplyType||''].forEach((v,ci)=>{
+          const c=wm.getCell(MR,ci+1); c.value=v||null;
+          c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(alt)}};
+          c.font={name:'Calibri',size:9,bold:false,color:{argb:argb(DND)}};
+          c.alignment={horizontal:ci>=4&&ci<=8?'right':ci===1?'left':'center',vertical:'middle',wrapText:ci===1}; c.border=TB;
+          if(ci>=4&&ci<=8&&typeof v==='number'&&v)c.numFmt=NF;
+        });
+        MR++;
+      });
+      MR++;
+    }
+  });
+
+  // Download
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`GSTR2B_Report_${new Date().toISOString().slice(0,10)}.xlsx`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL BUILDER — GSTR-2A (existing, preserved)
+// ═══════════════════════════════════════════════════════════════
+async function build2AExcel(results, dcnByMonth){
+  const wb=new ExcelJS.Workbook();
+  wb.creator='GST Report Tool'; wb.created=new Date();
+  const NC=11;
+
+  // Annual Summary
+  const ws=wb.addWorksheet('Annual Summary');
+  colW(ws,[22,28,8,20,20,14,14,18,12,18,22]);
+  ws.views=[{state:'frozen',xSplit:0,ySplit:5}];
+  ws.mergeCells(1,1,1,NC); st(ws.getCell(1,1),'GSTR-2A  —  Annual Purchase Summary with Credit / Debit Note Adjustments','1F3864','FFFFFF',true,14,'center'); ws.getRow(1).height=34;
+  ws.mergeCells(2,1,2,NC); st(ws.getCell(2,1),'Invoice Key: GSTIN+Invoice No+Date  |  Tax Key: +Rate  |  DCN Key: GSTIN+Note No+Date  |  Valid Rates: 0·5·12·18·28·40','2E75B6','FFFFFF',false,9,'center',true,0,null,true); ws.getRow(2).height=15;
+  ws.mergeCells(3,1,3,NC); st(ws.getCell(3,1),'Row 1: Total Purchases  |  Row 2: Add Debit Notes  |  Row 3: Less Credit Notes  |  Row 4: Net Purchases','34495E','FFFFFF',false,9,'center',true,0,null,true); ws.getRow(3).height=13;
+  ws.mergeCells(4,1,4,2); st(ws.getCell(4,1),'Month / Row','1F3864'); ws.getCell(4,2).border=TB;
+  ['Inv.','Invoice Value (₹)','Taxable Value (₹)','IGST (₹)','CGST (₹)','SGST / UT (₹)','Cess (₹)','Total Tax (₹)','Grand Total (₹)'].forEach((h,i)=>{st(ws.getCell(4,i+3),h,'1F3864','FFFFFF',true,9,'center',true);});
+  ws.getRow(4).height=26;
+
+  const GAcc={invVal:0,tv:0,ig:0,cg:0,sg:0,ce:0,tt:0,gt:0,dnNv:0,dnTv:0,dnIg:0,dnCg:0,dnSg:0,dnCe:0,dnTax:0,dnGt:0,cnNv:0,cnTv:0,cnIg:0,cnCg:0,cnSg:0,cnCe:0,cnTax:0,cnGt:0,netTv:0,netIg:0,netCg:0,netSg:0,netCe:0,netTax:0,netGt:0,ni:0};
+  let ROW=5;
+
+  results.forEach((r,ri)=>{
+    const d=dcnByMonth.get(`${r.y}-${r.m}`);
+    const pal=PAL[ri%PAL.length]; const{dark:DARK,light:LIGHT}=pal;
+    const dnTax=(d?d.dnIg+d.dnCg+d.dnSg+d.dnCe:0), cnTax=(d?d.cnIg+d.cnCg+d.cnSg+d.cnCe:0);
+    const dnGt=(d?d.dnTv+dnTax:0), cnGt=(d?d.cnTv+cnTax:0);
+    const netTv=r.tv+(d?d.netTv:0),netIg=r.igst+(d?d.netIg:0),netCg=r.cgst+(d?d.netCg:0);
+    const netSg=r.sgst+(d?d.netSg:0),netCe=r.cess+(d?d.netCe:0),netTax=netIg+netCg+netSg+netCe,netGt=netTv+netTax;
+    const netNv=d?d.netNv:0;
+    ws.mergeCells(ROW,1,ROW+3,1); const mc=ws.getCell(ROW,1); mc.value=r.label+(r.late.length?' ⚠':'');
+    mc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(DARK)}}; mc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+    mc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; mc.border=TB;
+    const row4=[
+      {label:'1  Total Purchases',lbg:DARK,vbg:LIGHT,vfc:'1F3864',bold:false,vals:[r.totalInv,r.invVal,r.tv,r.igst,r.cgst,r.sgst,r.cess,r.totalTax,r.gt]},
+      {label:'2  Add: Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,vals:[d?d.dnCount:null,d?d.dnNv:null,d?d.dnTv:null,d?d.dnIg:null,d?d.dnCg:null,d?d.dnSg:null,d?d.dnCe:null,dnTax||null,dnGt||null]},
+      {label:'3  Less: Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,vals:[d?d.cnCount:null,d?d.cnNv:null,d?d.cnTv:null,d?d.cnIg:null,d?d.cnCg:null,d?d.cnSg:null,d?d.cnCe:null,cnTax||null,cnGt||null]},
+      {label:'4  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,vals:[r.totalInv,r.invVal+netNv,netTv,netIg,netCg,netSg,netCe,netTax,netGt]},
+    ];
+    row4.forEach((rw,sub)=>{
+      const rr=ROW+sub; ws.getRow(rr).height=20;
+      st(ws.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,9,'left',false,1);
+      rw.vals.forEach((v,i)=>{ const c=ws.getCell(rr,i+3); c.value=v||null; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}}; c.font={name:'Calibri',size:10,bold:rw.bold,color:{argb:argb(rw.vfc)}}; c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB; if(typeof v==='number'&&v)c.numFmt=NF; });
+    });
+    ROW+=4;
+    for(let c=1;c<=NC;c++){const cell=ws.getCell(ROW,c);cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EDF2'}};cell.border={bottom:{style:'thin',color:{argb:'FF1F3864'}}};}
+    ws.getRow(ROW).height=3; ROW++;
+    GAcc.ni+=r.totalInv;GAcc.invVal+=r.invVal;GAcc.tv+=r.tv;GAcc.ig+=r.igst;GAcc.cg+=r.cgst;GAcc.sg+=r.sgst;GAcc.ce+=r.cess;GAcc.tt+=r.totalTax;GAcc.gt+=r.gt;
+    if(d){GAcc.dnNv+=d.dnNv;GAcc.dnTv+=d.dnTv;GAcc.dnIg+=d.dnIg;GAcc.dnCg+=d.dnCg;GAcc.dnSg+=d.dnSg;GAcc.dnCe+=d.dnCe;GAcc.dnTax+=dnTax;GAcc.dnGt+=dnGt;GAcc.cnNv+=d.cnNv;GAcc.cnTv+=d.cnTv;GAcc.cnIg+=d.cnIg;GAcc.cnCg+=d.cnCg;GAcc.cnSg+=d.cnSg;GAcc.cnCe+=d.cnCe;GAcc.cnTax+=cnTax;GAcc.cnGt+=cnGt;}
+    GAcc.netTv+=netTv;GAcc.netIg+=netIg;GAcc.netCg+=netCg;GAcc.netSg+=netSg;GAcc.netCe+=netCe;GAcc.netTax+=netTax;GAcc.netGt+=netGt;
+  });
+
+  ws.mergeCells(ROW,1,ROW+3,1); const gtc=ws.getCell(ROW,1); gtc.value='GRAND\nTOTAL';
+  gtc.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb('1F3864')}}; gtc.font={name:'Calibri',size:11,bold:true,color:{argb:'FFFFFFFF'}};
+  gtc.alignment={horizontal:'center',vertical:'middle',wrapText:true}; gtc.border=TB;
+  const gt4=[
+    {label:'1  Total Purchases',lbg:'1F3864',vbg:'D6E4F0',vfc:'1F3864',bold:false,vals:[GAcc.ni,GAcc.invVal,GAcc.tv,GAcc.ig,GAcc.cg,GAcc.sg,GAcc.ce,GAcc.tt,GAcc.gt]},
+    {label:'2  Add: Debit Notes',lbg:DND,vbg:DNL,vfc:DND,bold:false,vals:[null,GAcc.dnNv||null,GAcc.dnTv||null,GAcc.dnIg||null,GAcc.dnCg||null,GAcc.dnSg||null,GAcc.dnCe||null,GAcc.dnTax||null,GAcc.dnGt||null]},
+    {label:'3  Less: Credit Notes',lbg:CND,vbg:CNL,vfc:CND,bold:false,vals:[null,GAcc.cnNv||null,GAcc.cnTv||null,GAcc.cnIg||null,GAcc.cnCg||null,GAcc.cnSg||null,GAcc.cnCe||null,GAcc.cnTax||null,GAcc.cnGt||null]},
+    {label:'4  Net Purchases',lbg:GD,vbg:GL,vfc:GD,bold:true,vals:[GAcc.ni,GAcc.invVal+GAcc.dnNv-GAcc.cnNv,GAcc.netTv,GAcc.netIg,GAcc.netCg,GAcc.netSg,GAcc.netCe,GAcc.netTax,GAcc.netGt]},
+  ];
+  gt4.forEach((rw,sub)=>{ const rr=ROW+sub; ws.getRow(rr).height=24; st(ws.getCell(rr,2),rw.label,rw.lbg,'FFFFFF',true,10,'left',false,1); rw.vals.forEach((v,i)=>{ const c=ws.getCell(rr,i+3); c.value=v||null; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(rw.vbg)}}; c.font={name:'Calibri',size:11,bold:rw.bold,color:{argb:argb(rw.vfc)}}; c.alignment={horizontal:'right',vertical:'middle'}; c.border=TB; if(typeof v==='number'&&v)c.numFmt=NF; }); });
+
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`GSTR2A_Report_${new Date().toISOString().slice(0,10)}.xlsx`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GENERATE FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+async function generate2A(){
+  if(!invFiles.length&&!dcnFiles.length)return;
+  setStatus('info','⏳ Processing GSTR-2A files…');
+  document.getElementById('gen-btn-2a').disabled=true;
+  await new Promise(r=>setTimeout(r,60));
+  try{
+    const invByMonth=new Map();
+    invFiles.forEach(entry=>{ const key=`${entry.y}-${entry.m}`; if(!invByMonth.has(key)){invByMonth.set(key,{...entry,rows:[]});} invByMonth.get(key).rows.push(...entry.rows); });
+    const results=[...invByMonth.values()].map(e=>processInvMonth(e)).sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m);
+    const dcnByMonth=new Map();
+    dcnFiles.forEach(entry=>{ const key=`${entry.y}-${entry.m}`; if(!dcnByMonth.has(key)){dcnByMonth.set(key,{...entry,rows:[]});} dcnByMonth.get(key).rows.push(...entry.rows); });
+    const dcnProcessed=new Map();
+    dcnByMonth.forEach((entry,key)=>dcnProcessed.set(key,processDCNMonth(entry)));
+    renderPreview2A(results,dcnProcessed);
+    const allGstins=[...new Set([...results.flatMap(r=>[...r.inv.map(i=>i.gstin),...r.tax.map(t=>t.gstin)]),...Array.from(dcnProcessed.values()).flatMap(d=>[...d.nd.map(n=>n.gstin)])])];
+    await prefetchTradeNames(allGstins);
+    setStatus('info','⏳ Building Excel report…');
+    await build2AExcel(results,dcnProcessed);
+    setStatus('success',`✅ GSTR-2A Report generated for ${results.length} month(s). Downloading…`);
+  }catch(err){ setStatus('error','❌ Error: '+err.message); console.error(err); }
+  document.getElementById('gen-btn-2a').disabled=false;
+}
+
+async function generate2B(){
+  if(!files2B.length)return;
+  setStatus('info','⏳ Processing GSTR-2B Excel files…');
+  document.getElementById('gen-btn-2b').disabled=true;
+  await new Promise(r=>setTimeout(r,60));
+  try{
+    const months=files2B.map(f=>process2BMonth(f)).sort((a,b)=>a.y!==b.y?a.y-b.y:a.m-b.m);
+    renderPreview2B(months);
+    setStatus('info','⏳ Building GSTR-2B Excel report…');
+    await build2BExcel(months);
+    setStatus('success',`✅ GSTR-2B Report generated for ${months.length} month(s). Downloading…`);
+  }catch(err){ setStatus('error','❌ Error: '+err.message); console.error(err); }
+  document.getElementById('gen-btn-2b').disabled=false;
+}
+</script>
+</body>
+</html>

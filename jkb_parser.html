@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J&K Bank Statement Parser</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap');
+:root{
+  --bg:#0a1628;--card:#0f2040;--card2:#132848;--border:#1a3a6a;
+  --accent:#00e5c0;--accent2:#0088ff;--dim:#3a5a8a;
+  --text:#c8dff5;--textd:#5a80aa;--warn:#f0a020;--err:#e84040;--ok:#20d080;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;}
+/* ── layout ── */
+.header{display:flex;align-items:center;gap:16px;padding:20px 32px;
+  border-bottom:1px solid var(--border);background:rgba(15,32,64,.8);backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:100;}
+.logo{font-size:28px;color:var(--accent);font-weight:800;letter-spacing:-1px;}
+.logo span{color:var(--text);}
+.subtitle{font-size:11px;color:var(--textd);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.main{max-width:1100px;margin:0 auto;padding:32px 24px;}
+/* ── drop zone ── */
+.dropzone{border:2px dashed var(--border);border-radius:16px;padding:48px 32px;text-align:center;
+  cursor:pointer;transition:.2s;position:relative;background:var(--card);}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:rgba(0,229,192,.04);}
+.drop-icon{font-size:48px;margin-bottom:12px;}
+.drop-title{font-size:20px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.drop-sub{font-size:13px;color:var(--textd);}
+.drop-input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+/* ── file list ── */
+.file-list{margin-top:20px;display:flex;flex-direction:column;gap:8px;}
+.file-item{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);
+  border-radius:10px;padding:12px 16px;}
+.file-icon{font-size:20px;flex-shrink:0;}
+.file-info{flex:1;min-width:0;}
+.file-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.file-size{font-size:11px;color:var(--textd);font-family:'JetBrains Mono',monospace;}
+.file-status{font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.file-remove{background:none;border:none;color:var(--err);cursor:pointer;font-size:18px;padding:4px;
+  border-radius:6px;transition:.15s;flex-shrink:0;}
+.file-remove:hover{background:rgba(232,64,64,.15);}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));
+  width:0;transition:width .3s;border-radius:2px;}
+/* ── buttons ── */
+.btn-row{margin-top:24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.btn{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:12px 28px;
+  border-radius:10px;border:none;cursor:pointer;transition:.2s;letter-spacing:.3px;}
+.btn-primary{background:var(--accent);color:#071520;box-shadow:0 4px 20px rgba(0,229,192,.3);}
+.btn-primary:hover{background:#00ffd5;box-shadow:0 4px 28px rgba(0,229,192,.5);}
+.btn-primary:disabled{background:var(--dim);color:var(--textd);box-shadow:none;cursor:not-allowed;}
+.btn-ghost{background:var(--card2);color:var(--text);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+/* ── results ── */
+.results{margin-top:32px;display:flex;flex-direction:column;gap:16px;}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.result-header{display:flex;align-items:center;gap:12px;padding:16px 20px;
+  border-bottom:1px solid var(--border);background:var(--card2);}
+.result-filename{flex:1;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.result-badge{font-size:10px;font-family:'JetBrains Mono',monospace;padding:3px 8px;border-radius:20px;
+  background:rgba(0,229,192,.15);color:var(--accent);border:1px solid rgba(0,229,192,.3);}
+.result-badge.err{background:rgba(232,64,64,.15);color:var(--err);border-color:rgba(232,64,64,.3);}
+.result-body{padding:20px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;}
+.stat-card{background:var(--card2);border-radius:10px;padding:14px;border-left:3px solid var(--accent);}
+.stat-label{font-size:10px;color:var(--textd);text-transform:uppercase;letter-spacing:.8px;font-family:'JetBrains Mono',monospace;}
+.stat-value{font-size:18px;font-weight:700;color:var(--accent);margin-top:4px;font-family:'JetBrains Mono',monospace;}
+.stat-card.dep{border-color:var(--ok);}  .stat-card.dep .stat-value{color:var(--ok);}
+.stat-card.wd{border-color:var(--err);}  .stat-card.wd  .stat-value{color:var(--err);}
+.stat-card.bal{border-color:var(--accent2);} .stat-card.bal .stat-value{color:var(--accent2);}
+.warn-badge{display:inline-block;font-size:11px;color:var(--warn);font-family:'JetBrains Mono',monospace;
+  margin-bottom:10px;}
+.err-msg{color:var(--err);font-size:13px;font-family:'JetBrains Mono',monospace;padding:12px;
+  background:rgba(232,64,64,.08);border-radius:8px;border:1px solid rgba(232,64,64,.2);}
+/* ── modal ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;
+  justify-content:center;z-index:200;backdrop-filter:blur(4px);}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;
+  max-width:480px;width:90%;}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:8px;color:var(--accent);}
+.modal p{font-size:13px;color:var(--textd);margin-bottom:16px;line-height:1.6;}
+.modal-hint{background:var(--card2);border-radius:8px;padding:12px;margin-bottom:16px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);line-height:1.8;}
+.modal-row{display:flex;gap:8px;margin-bottom:16px;align-items:center;}
+.modal input{flex:1;background:var(--card2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 14px;color:var(--text);font-size:14px;font-family:'Syne',sans-serif;}
+.modal input:focus{outline:none;border-color:var(--accent);}
+.modal select{background:var(--card2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 14px;color:var(--text);font-size:14px;font-family:'Syne',sans-serif;}
+.modal-btns{display:flex;gap:10px;}
+/* ── misc ── */
+.section-title{font-size:13px;color:var(--textd);text-transform:uppercase;letter-spacing:1px;
+  font-family:'JetBrains Mono',monospace;margin-bottom:16px;}
+.empty{text-align:center;padding:60px 20px;color:var(--textd);font-size:14px;}
+.img-warn{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.25);border-radius:10px;
+  padding:14px 16px;font-size:12px;color:var(--warn);font-family:'JetBrains Mono',monospace;margin-top:8px;}
+
+/* ── FY table ── */
+.fy-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.fy-table th{background:var(--card2);color:var(--textd);font-family:'JetBrains Mono',monospace;
+  font-size:10px;text-transform:uppercase;letter-spacing:.6px;padding:8px 12px;
+  border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;}
+.fy-table th:first-child{text-align:left;}
+.fy-table td{padding:8px 12px;border-bottom:1px solid rgba(26,58,106,.4);
+  font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right;color:var(--text);}
+.fy-table td:first-child{text-align:left;color:var(--accent);font-weight:700;}
+.fy-table tr:last-child td{border-bottom:none;}
+.fy-table tr:hover td{background:rgba(0,229,192,.03);}
+.fy-table .dep{color:var(--ok);}
+.fy-table .wd{color:var(--err);}
+.fy-table .bal-pos{color:var(--accent2);}
+.fy-table .bal-neg{color:var(--err);}
+.fy-table .int{color:var(--warn);}
+.fy-table .totrow td{background:var(--card2);font-weight:700;border-top:2px solid var(--border);}
+.fy-file-title{font-size:12px;color:var(--accent);font-family:'JetBrains Mono',monospace;
+  margin-bottom:8px;padding:10px 16px;background:var(--card2);border-radius:8px 8px 0 0;
+  border:1px solid var(--border);border-bottom:none;}
+.fy-file-block{margin-bottom:20px;border-radius:0 0 10px 10px;overflow:hidden;
+  border:1px solid var(--border);border-top:none;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">₹<span>JKB</span></div>
+  <div>
+    <div style="font-size:15px;font-weight:700;">J&K Bank Statement Parser</div>
+    <div class="subtitle">Old · New · JKB3 · Multi-PDF · Excel Export · FY Analysis · Loop Detection</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="section-title">Upload PDFs</div>
+  <div class="dropzone" id="dropzone">
+    <input type="file" class="drop-input" id="fileInput" multiple accept=".pdf">
+    <div class="drop-icon">📂</div>
+    <div class="drop-title">Drop J&K Bank Statement PDFs here</div>
+    <div class="drop-sub">Or click to browse · Supports Old, New & JKB3 formats</div>
+  </div>
+
+  <div class="file-list" id="fileList"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="processBtn" disabled onclick="processAll()">
+      ⚡ Generate Excel Reports
+    </button>
+    <button class="btn btn-ghost" id="clearBtn" onclick="clearAll()" style="display:none">
+      🗑 Clear All
+    </button>
+    <span id="globalStatus" style="font-size:12px;color:var(--textd);font-family:'JetBrains Mono',monospace;"></span>
+  </div>
+
+  <div class="results" id="results"></div>
+
+<!-- FY Summary Panel -->
+<div id="fySummarySection" style="display:none;margin-top:40px;">
+  <div class="section-title" style="margin-bottom:0;">Financial Year Summary — All Files</div>
+  <div id="fySummaryCards" style="margin-top:16px;"></div>
+  <!-- Totals bar -->
+  <div id="fyTotalsBar" style="margin-top:16px;background:var(--card);border:1px solid var(--accent);
+    border-radius:14px;padding:20px 24px;"></div>
+</div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal-backdrop" id="pwdModal" style="display:none">
+  <div class="modal">
+    <h3>🔒 Password Protected PDF</h3>
+    <p id="pwdModalFile" style="color:var(--textd);font-size:13px;margin-bottom:12px;"></p>
+    <div class="modal-row">
+      <input type="password" id="pwdInput" placeholder="Enter PDF password…" style="letter-spacing:2px;"
+             onkeydown="if(event.key==='Enter')pwdConfirm()">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="padding:10px 20px" onclick="pwdConfirm()">Unlock</button>
+      <button class="btn btn-ghost"   style="padding:10px 20px" onclick="pwdCancel()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- OB Modal -->
+<div class="modal-backdrop" id="obModal" style="display:none">
+  <div class="modal">
+    <h3>Opening Balance Required</h3>
+    <p>No opening balance found in this PDF. Enter it below.</p>
+    <div class="modal-hint" id="obHint">Scanning…</div>
+    <div class="modal-row">
+      <input type="number" id="obAmt" placeholder="Amount (e.g. 150000)" step="0.01">
+      <select id="obSide">
+        <option value="Cr">Cr (Credit)</option>
+        <option value="Dr">Dr (Overdraft)</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="padding:10px 20px" onclick="obConfirm()">Proceed</button>
+      <button class="btn btn-ghost" style="padding:10px 20px" onclick="obZero()">Use 0.00</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+'use strict';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ━━━━ STATE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const files = []; // {file, id, status, progress}
+let obResolve = null; // for awaiting OB modal
+
+// ━━━━ CONSTANTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const MATCH_TOL = 0.02;
+const NOISE_KW = new Set(['PROP','COM','NET','ORG','GMAIL','YAHOO','HOTMAIL','REDIFFMAIL',
+  'NOWGAM','SHANGUS','RAJSHEIKH','COLLECTION','WEST','EAST','NORTH','SOUTH','NEAR',
+  'ROAD','LANE','WARD','MOHALLA','NAGAR','COLONY','DISTRICT','STATEMENT','ACCOUNT','PERIOD','PAGE']);
+const EMAIL_PAT = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g;
+const SKIP_NEW = /^(STATEMENT\s+OF\s+ACCOUNT|Statement for|Customer ID|Name$|Address|S\/O|R\/O|A\/c Type|Mobile No|E-Mail|Branch|IFSC|MICR|Phone No\.|Phone\s*Code|Serving|Date Particulars|\*This is|J&K BANK|JAMMU\s+AND\s+KASHMIR\s+BANK|TYPE\s*:|PIN\s*:|BAGGA|REASI|TEHSIL|Printed\s+By|TO\s*:|cKYC\s+Id|Interest\s+Rate|No\s+Nomination|MLA\s+HOSTEL|ADDITIONAL\s+BLOCK|180001|JAMMU,JAMMU)/i;
+const SKIP_HDR = /(Page\s+Total|Grand\s+Total|Page\s+\d+\s+of|STATEMENT\s+OF\s+ACCOUNT\b|DATE\s+PARTICULARS|CHQ\.?\s*NO\.?|CURRENCY\s+CODE|MICR|BATENGOO|ANANTNAG|JAMMU|J&K\s+BANK|General\s+Bus|TYPE\s*:|CUSTOMER\s+ID|A\/C\s+NO|PIN\s*:\s*\d|Printed\s+By|cKYC\s+Id|Interest\s+Rate|No\s+Nomination|TEHSIL|BAGGA|REASI|JAMMU\s+AND\s+KASHMIR\s+BANK|Phone\s*Code|MLA\s+HOSTEL|ADDITIONAL\s+BLOCK)/i;
+
+// ━━━━ HELPERS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const r2 = v => Math.round(v * 100) / 100;
+
+function toFloat(s) {
+  if (!s) return null;
+  const v = parseFloat(String(s).replace(/,/g,'').replace(/(Dr|Cr)\s*$/i,'').trim());
+  return isNaN(v) ? null : v;
+}
+
+function balToFloat(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  const isDr = /Dr\s*$/i.test(s), isCr = /Cr\s*$/i.test(s);
+  s = s.replace(/(Dr|Cr)\s*$/i,'').trim();
+  let val = parseFloat(s.replace(/,/g,''));
+  if (isNaN(val)) return null;
+  if (isDr && val > 0) val = -val;
+  if (isCr && val < 0) val = Math.abs(val);
+  return val;
+}
+
+function isExplodedWord(tok) {
+  const t = tok.replace(/[^A-Za-z]/g,'');
+  if (t.length < 6 || t.length % 3 !== 0) return false;
+  for (let i = 0; i < t.length; i += 3)
+    if (t[i] !== t[i+1] || t[i] !== t[i+2]) return false;
+  return true;
+}
+
+function cleanP(raw) {
+  if (!raw || !raw.trim()) return '';
+  raw = raw.trim().replace(EMAIL_PAT,'');
+  const toks = raw.split(/\s+/).filter(tok =>
+    tok && !isExplodedWord(tok) && !NOISE_KW.has(tok.toUpperCase()));
+  if (!toks.length) return '';
+  const phones = toks.filter(t => /^\d{10}$/.test(t));
+  const names  = [];
+  for (const t of toks) { const m = t.match(/[A-Za-z]{3,}/g); if (m) names.push(...m); }
+  let result = '';
+  if (phones.length && names.length) result = (names.join(' ')+' '+phones.join(' ')).toUpperCase();
+  else if (phones.length) result = phones.join(' ');
+  else if (names.length)  result = names.join(' ').toUpperCase();
+  else result = toks.join(' ').toUpperCase();
+  return result.slice(0, 30);
+}
+
+function parseDate(s) {
+  if (!s) return null;
+  const mN = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+  if (mN) return new Date(+mN[3], +mN[2]-1, +mN[1]);
+  const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  const mM = /^(\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})$/i.exec(s);
+  if (mM) return new Date(+mM[3], MONTHS[mM[2].toLowerCase()], +mM[1]);
+  return null;
+}
+
+function getFY(dateStr) {
+  const d = parseDate(dateStr);
+  if (!d) return 'Unknown';
+  const y = d.getFullYear(), m = d.getMonth()+1;
+  return m >= 4 ? `${y}-${String(y+1).slice(2)}` : `${y-1}-${String(y).slice(2)}`;
+}
+
+// INT COLL: standalone INT COLL, account:INT.COLL (e.g. 0612...:INT.COLL 01-02-25 TO 28-02-25)
+// INT COLL: handles INT COLL/INT.COLL/INT:COLL, account:INT.COLL,
+// and PDF line-split artefacts like 'ormal Int.Coll' (Normal split to N + ormal)
+//_INT  = /\bINT\b[\W_]*\bCOLL\b|\bINTEREST\b|\d{6,}\s*:?\s*INT[^A-Za-z]*COLL|[Oo]rmal\s+Int[.:]?\s*Coll|\bNrml\s+Int[.:]?\s*Coll/i;
+const _INT = /\b(?:INT|COLL|INTEREST)\b|(?:INT|COLL)\.?|INT\.?\s*COLL\.?/i;
+const _SMS  = /\bSMS\b.*\bCHARG|\bSMS\s*CHARG/i;
+const _INSUR= /\bINSUR|\bINSURANCE|\bBAJAJ\b/i;
+const _LOAN = /\bLOAN\b.*\bRECOV|\bLOAN\s*EMI/i;
+const _CHRG = /\bCHRGS?\b|\bCHARGE?S?\b|\bCHAR\b|\bCHR\b|\bBANK\s+CHARG|\bACCT\s+MAIN/i;
+
+function categorize(p, ownAcct) {
+  // Own account number prefix → Interest Charges
+  // (e.g. "0612265240000066:Normal Int.Coll:01-08-25 To 31-08-25")
+  //if (ownAcct && p.trim().startsWith(ownAcct)) return 'Interest Charges';
+  if (_INT.test(p))  return 'Interest Charges';
+  if (_SMS.test(p))  return 'SMS Charges';
+  if (_INSUR.test(p))return 'Insurance';
+  if (_LOAN.test(p)) return 'Loan Recovery';
+  if (_CHRG.test(p)) return 'Bank Charges';
+  return 'Other';
+}
+
+function extractLineAmount(fullLine, balRaw) {
+  let line = fullLine.trim();
+  const idx = line.lastIndexOf(balRaw);
+  if (idx >= 0) line = line.slice(0, idx).trim();
+  line = line.replace(/^\d{2}-(?:\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))-\d{4}\s*/i,'');
+  const cands = [];
+  for (const tok of line.split(/\s+/)) {
+    const t = tok.replace(/(Dr|Cr)$/i,'');
+    if (/^[\d,]+\.\d{2}$/.test(t)) { const v = parseFloat(t.replace(/,/g,'')); if (!isNaN(v)) cands.push(v); }
+  }
+  return cands.length ? cands[cands.length-1] : null;
+}
+
+// ━━━━ PDF TEXT EXTRACTION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function extractPages(file, password) {
+  const ab = await file.arrayBuffer();
+  const opts = { data: ab };
+  if (password) opts.password = password;
+  let pdf;
+  try { pdf = await pdfjsLib.getDocument(opts).promise; }
+  catch(e) {
+    if (e.name === 'PasswordException') throw {needsPassword: true};
+    throw e;
+  }
+  const allLines = [];
+  for (let pn = 1; pn <= pdf.numPages; pn++) {
+    const page = await pdf.getPage(pn);
+    const content = await page.getTextContent();
+    const YTOL = 3;
+    const groups = [];
+    for (const item of content.items) {
+      if (!item.str || !item.str.trim()) continue;
+      const y = item.transform[5], x = item.transform[4];
+      let grp = groups.find(g => Math.abs(g.y - y) < YTOL);
+      if (!grp) { grp = {y, items:[]}; groups.push(grp); }
+      grp.items.push({x, text: item.str});
+    }
+    groups.sort((a,b) => b.y - a.y);
+    for (const g of groups) {
+      g.items.sort((a,b) => a.x - b.x);
+      const line = g.items.map(i => i.text).join(' ').trim();
+      if (line) allLines.push(line);
+    }
+  }
+  return allLines;
+}
+
+// ━━━━ FORMAT DETECTION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function detectFmt(lines) {
+  const txt = lines.slice(0, Math.min(lines.length, 100)).join('\n');
+  const hasDD  = /\b\d{2}-\d{2}-\d{4}\b/.test(txt);
+  const hasNDr = /-[\d,]+\.\d{2}\s*Dr/i.test(txt);
+  const hasPDr = /(?<![.\-])\d[\d,]*\.\d{2}\s*(Dr|Cr)\b/i.test(txt);
+  const hasBF  = /\bB\/F\b/.test(txt);
+  const hasMon = /\d{2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4}/i.test(txt);
+  if (hasDD && hasNDr) return 'jkb3';
+  if (hasBF) return 'old';
+  if (hasDD && hasPDr) return 'jkb3';
+  if (hasMon) return 'new';
+  return 'new';
+}
+
+// ━━━━ OPENING BALANCE SCAN ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function quickScan(lines) {
+  const OBP = /(-?[\d,]+\.\d{2})\s*(Dr|Cr)?\s*$/i;
+  const DPN = /^\d{2}-\d{2}-\d{4}\b/;
+  const DPM = /^\d{2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4}\b/i;
+  const BALDR = /(-?[\d,]+\.\d{2})\s*(Dr|Cr)\s*$/i;
+  const ACCT_PAT = /A\/?\s*C\s*(?:NO|NUMBER)?\s*[:\-]?\s*(\d{10,})/i;
+  let ob = null, fDate = null, fBal = null, fAmt = null, acctNo = null;
+  for (const raw of lines) {
+    const line = raw.trim(), low = line.toLowerCase();
+    if (!line) continue;
+    // Extract own account number from statement header
+    if (!acctNo) { const am = ACCT_PAT.exec(line); if (am) acctNo = am[1].trim(); }
+    if (low.includes('opening balance') || low.includes('b/f')) {
+      const m = OBP.exec(line);
+      if (m) ob = balToFloat(m[1]+(m[2]||''));
+      break;
+    }
+    if (!fDate && (DPN.test(line) || DPM.test(line))) {
+      const toks = line.split(/\s+/);
+      fDate = toks[0];
+      const bm = BALDR.exec(line);
+      if (bm) { fBal = balToFloat(bm[1]+bm[2]); fAmt = extractLineAmount(line, bm[1]+bm[2]); }
+      else {
+        const last = toks[toks.length-1];
+        if (/^-?[\d,]+\.\d{2}$/.test(last)) { fBal = toFloat(last); fAmt = extractLineAmount(line, last); }
+      }
+    }
+  }
+  return {hasOB: ob !== null, obValue: ob, firstDate: fDate, firstBalance: fBal, firstAmt: fAmt, acctNo};
+}
+
+// ━━━━ PARSER: NEW FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function extractNew(lines) {
+  const dp = /^(\d{2}-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4})\b/i;
+  let ob = null, obInitial = null, hdr = false, recs = [], desc = '';
+  for (const raw of lines) {
+    const line = raw.trim(); if (!line) continue;
+    const low = line.toLowerCase();
+    if (low.includes('page total') || low.includes('grand total')) continue;
+    if (/^total\b/i.test(line)) continue;
+    if (/^date\s+particulars/i.test(line)) { hdr = true; continue; }
+    if (SKIP_NEW.test(line)) continue;
+    if (low.includes('opening balance') || low.includes('b/f')) {
+      hdr = true;
+      const toks = line.split(/\s+/);
+      const v = parseFloat(toks[toks.length-1].replace(/,/g,''));
+      if (!isNaN(v)) { obInitial = v; ob = v; }
+      continue;
+    }
+    if (!hdr) continue;
+    const i = line.split(/\s+/); if (!i.length) continue;
+    if (dp.test(i[0])) {
+      let cb; try { cb = parseFloat(i[i.length-1].replace(/,/g,'')); } catch(e){ continue; }
+      if (isNaN(cb)) continue;
+      let lineAmt = null, amtIsNum = false;
+      if (i.length >= 3) {
+        const v2 = parseFloat(i[i.length-2].replace(/,/g,''));
+        if (!isNaN(v2) && !i[i.length-2].startsWith('-')) { lineAmt = r2(v2); amtIsNum = true; }
+      }
+      const inline = amtIsNum ? i.slice(1,-2).join(' ') : i.slice(1,-1).join(' ');
+      const fullDesc = desc ? (desc+' '+inline).trim() : inline;
+      let wd=0, dep=0;
+      if (ob !== null) { const diff=r2(ob-cb); if (diff>0) wd=diff; else dep=Math.abs(diff); }
+      ob = cb;
+      recs.push({orig_idx:recs.length, date:dp.exec(i[0])[1], desc:cleanP(fullDesc), line_amt:lineAmt, balance:cb});
+      desc = '';
+    } else {
+      desc += (desc?' ':'')+i.join(' ');
+    }
+  }
+  return {recs, ob: obInitial};
+}
+
+// ━━━━ PARSER: JKB3 FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function extractJkb3(lines) {
+  const dp  = /^(\d{2}-\d{2}-\d{4})\b/;
+  const bp  = /(-?[\d,]+\.\d{2})\s*(Dr|Cr)\s*$/i;
+  const amtp= /[\d,]+\.\d{2}/g;
+  let recs=[], pDate=null, pParts=[], pBal=null, pBalRaw='', pLines=[];
+  function flush() {
+    if (!pDate || pBal === null) return;
+    recs.push({orig_idx:recs.length, date:pDate, desc:cleanP(pParts.join(' ')),
+      line_amt:extractLineAmount(pLines.join(' '), pBalRaw), balance:pBal});
+  }
+  for (const raw of lines) {
+    const line=raw.trim(); if (!line) continue;
+    if (SKIP_HDR.test(line)) continue;
+    const dm=dp.exec(line), bm=bp.exec(line);
+    if (dm && bm) {
+      flush(); pDate=dm[1]; pBalRaw=bm[1]+bm[2]; pBal=balToFloat(pBalRaw);
+      const mid=line.slice(dm[0].length, line.length-bm[0].length).replace(amtp,'').trim();
+      pParts=mid?[mid]:[]; pLines=[line];
+    } else if (dm && !bm) {
+      flush(); pDate=dm[1]; pBal=null; pBalRaw='';
+      const rest=line.slice(dm[0].length).trim(); pParts=rest?[rest]:[]; pLines=[line];
+    } else if (!dm && bm && pDate) {
+      pBalRaw=bm[1]+bm[2]; pBal=balToFloat(pBalRaw);
+      const cont=line.slice(0,line.length-bm[0].length).replace(amtp,'').trim();
+      if(cont) pParts.push(cont); pLines.push(line);
+    } else if (pDate && !bm) {
+      pParts.push(line); pLines.push(line);
+    }
+  }
+  flush();
+  return {recs, ob: null};
+}
+
+// ━━━━ PARSER: OLD FORMAT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function extractOld(lines) {
+  // Accumulates continuation lines (no date, no balance) into desc.
+  // Fixes: "0612265240000066:N" + "ormal Int.Coll:30-" split across lines.
+  const dp=/(\d{2}-\d{2}-\d{4})/, bp=/(\d[\d,]*\.\d{2})(Cr|Dr)/i, np=/\d+\.\d{2}/;
+  let ob=null,recs=[],df_=false,bf_=false,desc='',date_='',bal=0,fullBuf='';
+  for (const raw of lines) {
+    const line=raw.trim(); if (!line) continue;
+    const lowL=line.toLowerCase();
+    if(lowL.includes('page total')||lowL.includes('grand total')) continue;
+    const toks=line.split(/\s+/);
+    // Skip standalone balance-only footer line
+    if(toks.length===1 && bp.test(toks[0]) && !dp.test(toks[0])) { bf_=false; continue; }
+    const hasDp=dp.test(line), hasBp=bp.test(line);
+    if(line.includes('B/F')) {
+      const m=bp.exec(line);
+      if(m){ const v=toFloat(m[1]); ob=m[2].toUpperCase()==='DR'?-Math.abs(v):Math.abs(v); }
+      continue;
+    }
+    // ── Continuation line: in a record, no date, no balance ──
+    if(df_ && !bf_ && !hasDp && !hasBp) {
+      desc += (desc?' ':'')+line;
+      fullBuf += ' '+line;
+      continue;
+    }
+    if(!hasDp && !hasBp) continue;
+    if(!df_) {
+      const dm=dp.exec(toks[0]);
+      if(dm){ date_=dm[1]; let ni=toks.findIndex(t=>np.test(t));
+        desc=ni>1?toks.slice(1,ni).join(' '):toks.slice(1).join(' ');
+        fullBuf=line; df_=true; }
+    }
+    if(!bf_) {
+      const last=toks[toks.length-1]; const bm=bp.exec(last);
+      if(bm){ const v=toFloat(bm[1]); bal=bm[2].toUpperCase()==='DR'?-Math.abs(v):Math.abs(v);
+        const ni=toks.findIndex(t=>np.test(t));
+        if(ni>0){ const add=toks.slice(0,ni).join(' '); if(add&&!desc.includes(add)) desc+=' '+add; }
+        fullBuf+=' '+line; bf_=true; }
+    }
+    if(df_&&bf_){
+      recs.push({orig_idx:recs.length,date:date_,desc:cleanP(desc),
+        line_amt:extractLineAmount(fullBuf,toks[toks.length-1]),balance:bal});
+      df_=false;bf_=false;desc='';fullBuf='';
+    }
+  }
+  return {recs, ob};
+}
+
+// ━━━━ STAGE 2A: ORDERED (old/new) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildRecordsOrdered(recs, openingBal) {
+  const result=[], warnings=[]; let prev=openingBal||0;
+  for (const rec of recs) {
+    const rawDiff = r2(prev - rec.balance);
+    const rawDa   = Math.abs(rawDiff);
+    const la      = rec.line_amt !== null ? r2(rec.line_amt) : null;
+
+    // ── Corrupt-balance detection ──────────────────────────────────────
+    // If LINE_AMT is known but doesn't match the balance diff by more than
+    // BAL_CORRUPT_TOL, the PDF balance figure is likely garbled (e.g. "33p0184.10Dr").
+    // Reconstruct the correct balance from prev ± LINE_AMT.
+    const BAL_CORRUPT_TOL = 1.00; // allow 1 rupee rounding slack
+    let usedBalance = rec.balance;
+    let balCorrupt  = false;
+
+    if (la !== null && Math.abs(rawDa - la) > BAL_CORRUPT_TOL) {
+      // Try withdrawal: new_bal = prev - la
+      const tryWd  = r2(prev - la);
+      // Try deposit:   new_bal = prev + la
+      const tryDep = r2(prev + la);
+      // Pick whichever reconstruction lands closest to the stated (possibly
+      // partially-readable) balance; default to withdrawal if equidistant.
+      const distWd  = Math.abs(rec.balance - tryWd);
+      const distDep = Math.abs(rec.balance - tryDep);
+      usedBalance = distDep < distWd ? tryDep : tryWd;
+      balCorrupt  = true;
+      warnings.push({
+        Type: 'Corrupt Balance',
+        Date: rec.date,
+        Particulars: rec.desc,
+        'Line Amount': la,
+        'Prev Balance': r2(prev),
+        'New Balance': r2(usedBalance),
+        Notes: 'PDF balance appears garbled. Reconstructed from LINE_AMT (' + la + ') as ' + r2(usedBalance) + '.'
+      });
+    }
+
+    const diff = r2(prev - usedBalance), da = Math.abs(diff);
+    result.push({
+      DATE: rec.date, PARTICULARS: rec.desc,
+      WITHDRAWALS: diff > 0.005 ? da : 0,
+      DEPOSITS:    diff < -0.005 ? da : 0,
+      BALANCE: usedBalance,
+      LINE_AMT: la,
+      BAL_DIFF: da,
+      MATCH: balCorrupt ? '⚠' : '—',
+      PDF_ROW: rec.orig_idx + 1,
+      REORDERED: balCorrupt ? 'BAL-FIXED' : ''
+    });
+    prev = usedBalance;
+  }
+  return {final: result, warnings};
+}
+
+// ━━━━ STAGE 2B: RECONCILE & SORT (jkb3 with loop detection) ━━━━━━━
+function findLoop(pool, startBal) {
+  const MAX_DEPTH=20, MAX_ITER=8000;
+  if (!pool.some(r=>Math.abs(r.balance-startBal)<=MATCH_TOL)) return null;
+  let iters=0;
+  function dfs(rem, cur, path) {
+    iters++; if(iters>MAX_ITER) return null;
+    if(path.length>0 && Math.abs(cur-startBal)<=MATCH_TOL) return [...path];
+    if(path.length>=MAX_DEPTH||path.length>=pool.length) return null;
+    for(let i=0;i<rem.length;i++){
+      const rec=rem[i]; if(rec.line_amt===null) continue;
+      const diff=Math.abs(r2(cur-rec.balance));
+      if(Math.abs(diff-rec.line_amt)>MATCH_TOL) continue;
+      path.push(rec);
+      const res=dfs([...rem.slice(0,i),...rem.slice(i+1)],rec.balance,path);
+      if(res) return res;
+      path.pop();
+    }
+    return null;
+  }
+  return dfs([...pool],startBal,[]);
+}
+
+function reconcileAndSort(rawRecs, openingBal) {
+  // group by date
+  const groups=[];
+  for (const rec of rawRecs) {
+    if(!groups.length||groups[groups.length-1].date!==rec.date)
+      groups.push({date:rec.date,recs:[]});
+    groups[groups.length-1].recs.push({...rec});
+  }
+  const result=[],warnings=[];
+  let prev=openingBal||0, pos=0;
+  function emit(rec, reordered) {
+    const diff=r2(prev-rec.balance), da=Math.abs(diff);
+    const w=diff>MATCH_TOL?da:0, d=diff<-MATCH_TOL?da:0;
+    result.push({DATE:rec.date,PARTICULARS:rec.desc,WITHDRAWALS:w,DEPOSITS:d,
+      BALANCE:rec.balance, LINE_AMT:rec.line_amt!==null?r2(rec.line_amt):null,
+      BAL_DIFF:da, MATCH:rec.line_amt===null?'—':Math.abs(da-(rec.line_amt||0))<=MATCH_TOL?'✓':'⚠',
+      PDF_ROW:rec.orig_idx+1, REORDERED:reordered?'YES':''});
+    prev=rec.balance; pos++;
+  }
+  for (const {date, recs:group} of groups) {
+    let pool=[...group];
+    while(pool.length) {
+      // Check for loop
+      const loop=findLoop(pool,prev);
+      if(loop){
+        const loopSet=new Set(loop.map(r=>r.orig_idx));
+        const nonLoopBefore=pool.filter(r=>!loopSet.has(r.orig_idx)&&pool.indexOf(r)<pool.indexOf(loop[0]));
+        if(nonLoopBefore.length){
+          warnings.push({Type:'Reorder',Date:date,Particulars:loop[0].desc.slice(0,60),
+            'Line Amount':loop[0].line_amt,'Prev Balance':r2(prev),
+            'New Balance':r2(loop[0].balance),Notes:'Loop reorder: balance cycle detected.'});
+        }
+        for(const rec of loop){ pool.splice(pool.findIndex(r=>r.orig_idx===rec.orig_idx),1); emit(rec,!!nonLoopBefore.length); }
+        continue;
+      }
+      // Standard matching
+      let mi=null;
+      for(let i=0;i<pool.length;i++){
+        const rec=pool[i]; if(rec.line_amt===null) continue;
+        const da=Math.abs(r2(prev-rec.balance));
+        if(Math.abs(da-rec.line_amt)<=MATCH_TOL){mi=i;break;}
+      }
+      if(mi===null) for(let i=0;i<pool.length;i++) if(pool[i].line_amt===null){mi=i;break;}
+      if(mi===null){
+        mi=0;
+        warnings.push({Type:'Unresolvable Mismatch',Date:date,Particulars:pool[0].desc.slice(0,60),
+          'Line Amount':pool[0].line_amt,'Prev Balance':r2(prev),
+          'New Balance':r2(pool[0].balance),Notes:'Force-processed.'});
+      }
+      if(mi>0){
+        const rec=pool[mi];
+        warnings.push({Type:'Reorder',Date:date,Particulars:rec.desc.slice(0,60),
+          'Line Amount':rec.line_amt,'Prev Balance':r2(prev),
+          'New Balance':r2(rec.balance),Notes:`Moved from PDF row ${rec.orig_idx+1} to output row ${pos+1}.`});
+      }
+      const rec=pool.splice(mi,1)[0];
+      emit(rec,mi>0);
+    }
+  }
+  return {final:result, warnings};
+}
+
+// ━━━━ EXCEL GENERATION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function generateExcel(filename, final, warnings, ownAcct) {
+  const wb = XLSX.utils.book_new();
+
+  // ── Detailed ──
+  const det=[['DATE','PARTICULARS','WITHDRAWALS','DEPOSITS','BALANCE','LINE_AMT','BAL_DIFF','MATCH','PDF_ROW','REORDERED']];
+  for(const r of final) det.push([r.DATE,r.PARTICULARS,r.WITHDRAWALS||0,r.DEPOSITS||0,r.BALANCE,
+    r.LINE_AMT!==null&&r.LINE_AMT!==undefined?r.LINE_AMT:'',r.BAL_DIFF||0,r.MATCH||'—',r.PDF_ROW||0,r.REORDERED||'']);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(det), 'Detailed');
+
+  // ── Summary ──
+  const pm={};
+  for(const r of final){
+    const p=r.PARTICULARS;
+    if(!pm[p]) pm[p]={count:0,wd:0,dep:0,last:''};
+    pm[p].count++; pm[p].wd+=r.WITHDRAWALS||0; pm[p].dep+=r.DEPOSITS||0; pm[p].last=r.DATE;
+  }
+  const summ=[['PARTICULARS','Count','Total Withdrawals','Total Deposits','Last Date']];
+  for(const [p,v] of Object.entries(pm).sort((a,b)=>b[1].wd-a[1].wd))
+    summ.push([p,v.count,r2(v.wd),r2(v.dep),v.last]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summ), 'Summary');
+
+  // ── FY Summary ──
+  const fym={};
+  for(const r of final){
+    const fy=getFY(r.DATE);
+    if(!fym[fy]) fym[fy]={dep:0,wd:0,int:0,sms:0,insur:0,loan:0,chrg:0,n:0,lastBal:0};
+    const cat=categorize(r.PARTICULARS, ownAcct);
+    fym[fy].dep+=r.DEPOSITS||0; fym[fy].wd+=r.WITHDRAWALS||0; fym[fy].n++;
+    fym[fy].lastBal=r.BALANCE;
+    if(cat==='Interest Charges') fym[fy].int+=r.WITHDRAWALS||0;
+    if(cat==='SMS Charges')      fym[fy].sms+=r.WITHDRAWALS||0;
+    if(cat==='Insurance')        fym[fy].insur+=r.WITHDRAWALS||0;
+    if(cat==='Loan Recovery')    fym[fy].loan+=r.WITHDRAWALS||0;
+    if(cat==='Bank Charges')     fym[fy].chrg+=r.WITHDRAWALS||0;
+  }
+  const fyd=[['Financial Year','Total Deposits (₹)','Total Withdrawals (₹)',
+    'Interest Charges (₹)','SMS Charges (₹)','Insurance (₹)','Loan Recovery (₹)',
+    'Bank Charges (₹)','Transactions','Closing Balance (₹)']];
+  for(const [fy,v] of Object.entries(fym).sort())
+    fyd.push([fy,r2(v.dep),r2(v.wd),r2(v.int),r2(v.sms),r2(v.insur),r2(v.loan),r2(v.chrg),v.n,r2(v.lastBal)]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fyd), 'FY Summary');
+
+  // ── Warnings ──
+  const warnCols=['Type','PDF Position','Output Position','Date','Particulars',
+    'Line Amount','Balance Diff','Prev Balance','New Balance','Notes'];
+  const wd=[warnCols];
+  for(const w of warnings) wd.push(warnCols.map(c=>w[c]!==undefined?w[c]:''));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wd), 'Warnings');
+
+  XLSX.writeFile(wb, filename);
+}
+
+// ━━━━ OPENING BALANCE MODAL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function showOBModal(info) {
+  const hint = document.getElementById('obHint');
+  let hintText = `First transaction date : ${info.firstDate||'?'}\n`;
+  if (info.firstBalance !== null && info.firstBalance !== undefined)
+    hintText += `Balance after 1st txn  : ₹${Math.abs(info.firstBalance).toLocaleString('en-IN',{minimumFractionDigits:2})} ${info.firstBalance<0?'Dr':'Cr'}\n`;
+  if (info.firstAmt !== null && info.firstAmt !== undefined && info.firstBalance !== null) {
+    hintText += `1st txn amount         : ₹${info.firstAmt.toLocaleString('en-IN',{minimumFractionDigits:2})}\n`;
+    const ob1 = info.firstBalance+info.firstAmt, ob2 = info.firstBalance-info.firstAmt;
+    hintText += `→ If withdrawal  : OB ≈ ₹${Math.abs(ob1).toLocaleString('en-IN',{minimumFractionDigits:2})} ${ob1<0?'Dr':'Cr'}\n`;
+    hintText += `→ If deposit     : OB ≈ ₹${Math.abs(ob2).toLocaleString('en-IN',{minimumFractionDigits:2})} ${ob2<0?'Dr':'Cr'}`;
+  }
+  hint.textContent = hintText;
+  document.getElementById('obAmt').value = '';
+  document.getElementById('obModal').style.display = 'flex';
+  return new Promise(res => { obResolve = res; });
+}
+
+function obConfirm() {
+  const amt = parseFloat(document.getElementById('obAmt').value);
+  if (isNaN(amt)) { alert('Enter a valid number.'); return; }
+  const side = document.getElementById('obSide').value;
+  const val = side==='Dr' ? -Math.abs(amt) : Math.abs(amt);
+  document.getElementById('obModal').style.display = 'none';
+  if (obResolve) { obResolve(val); obResolve = null; }
+}
+function obZero() {
+  document.getElementById('obModal').style.display = 'none';
+  if (obResolve) { obResolve(0); obResolve = null; }
+}
+
+// ── Password modal ─────────────────────────────────────────────────
+let pwdResolve = null;
+function showPwdModal(filename) {
+  document.getElementById('pwdModalFile').textContent = filename;
+  document.getElementById('pwdInput').value = '';
+  document.getElementById('pwdModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('pwdInput').focus(), 100);
+  return new Promise(res => { pwdResolve = res; });
+}
+function pwdConfirm() {
+  const pwd = document.getElementById('pwdInput').value;
+  document.getElementById('pwdModal').style.display = 'none';
+  if (pwdResolve) { pwdResolve(pwd||null); pwdResolve = null; }
+}
+function pwdCancel() {
+  document.getElementById('pwdModal').style.display = 'none';
+  if (pwdResolve) { pwdResolve(null); pwdResolve = null; }
+}
+
+// ━━━━ MAIN PROCESSING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function processPDF(fileEntry, updateProgress) {
+  updateProgress(5, 'Extracting text…');
+  let lines;
+  try {
+    lines = await extractPages(fileEntry.file);
+  } catch(e) {
+    if (e.needsPassword) {
+      const pwd = await showPwdModal(fileEntry.file.name);
+      if (!pwd) throw new Error('Cancelled — no password provided.');
+      try {
+        lines = await extractPages(fileEntry.file, pwd);
+      } catch(e2) {
+        if (e2.needsPassword) throw new Error('Incorrect password.');
+        throw e2;
+      }
+    } else throw e;
+  }
+
+  if (!lines.length) throw new Error('No text extracted. This PDF may be image-based (scanned) — only text-based PDFs are supported.');
+
+  updateProgress(20, 'Detecting format…');
+  const fmt = detectFmt(lines);
+
+  updateProgress(30, 'Scanning opening balance…');
+  const scan = quickScan(lines);
+  let ob = scan.obValue;
+
+  if (!scan.hasOB) {
+    updateProgress(32, 'Requesting opening balance…');
+    ob = await showOBModal(scan);
+  }
+
+  updateProgress(40, `Parsing (${fmt} format)…`);
+  let parseResult;
+  if      (fmt === 'new') parseResult = extractNew(lines);
+  else if (fmt === 'old') parseResult = extractOld(lines);
+  else                    parseResult = extractJkb3(lines);
+
+  const {recs} = parseResult;
+  const pdfOB  = parseResult.ob;
+  if (pdfOB !== null && ob === null) ob = pdfOB;
+
+  if (!recs.length) throw new Error('No transactions parsed. Check format or try with a different PDF.');
+
+  updateProgress(70, `Reconciling ${recs.length} records…`);
+  let result;
+  if (fmt === 'jkb3') result = reconcileAndSort(recs, ob||0);
+  else                result = buildRecordsOrdered(recs, ob||0);
+
+  updateProgress(90, 'Generating Excel…');
+  const {final, warnings} = result;
+  const outName = fileEntry.file.name.replace(/\.pdf$/i,'') + '_report.xlsx';
+  generateExcel(outName, final, warnings, scan.acctNo);
+
+  updateProgress(100, 'Done!');
+
+  // Stats
+  const totD = final.reduce((s,r)=>s+(r.DEPOSITS||0),0);
+  const totW = final.reduce((s,r)=>s+(r.WITHDRAWALS||0),0);
+  const closing = final.length ? final[final.length-1].BALANCE : 0;
+  const nReord  = warnings.filter(w=>w.Type==='Reorder').length;
+
+  return {fmt, rows:final.length, totD, totW, closing, warnings, nReord, outName, final, recs, acctNo: scan.acctNo};
+}
+
+// ━━━━ UI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function fmtAmt(v) {
+  return '₹'+Math.abs(v).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+
+function addFiles(newFiles) {
+  for (const f of newFiles) {
+    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+    if (files.find(e=>e.file.name===f.name&&e.file.size===f.size)) continue;
+    const id = 'f'+Date.now()+Math.random().toString(36).slice(2);
+    files.push({file:f, id, status:'pending', progress:0, result:null, error:null});
+  }
+  renderFileList();
+  document.getElementById('processBtn').disabled = files.length===0;
+  document.getElementById('clearBtn').style.display = files.length ? '' : 'none';
+}
+
+function renderFileList() {
+  const el = document.getElementById('fileList');
+  el.innerHTML = files.map(fe=>`
+    <div class="file-item" id="fi_${fe.id}">
+      <div class="file-icon">📄</div>
+      <div class="file-info">
+        <div class="file-name">${fe.file.name}</div>
+        <div class="file-size">${(fe.file.size/1024).toFixed(1)} KB</div>
+        <div class="file-status" id="fs_${fe.id}">${fe.status==='pending'?'Ready to process':fe.status}</div>
+        <div class="progress-bar"><div class="progress-fill" id="fp_${fe.id}" style="width:${fe.progress}%"></div></div>
+      </div>
+      <button class="file-remove" onclick="removeFile('${fe.id}')">✕</button>
+    </div>`).join('');
+}
+
+function removeFile(id) {
+  const idx=files.findIndex(f=>f.id===id);
+  if(idx>=0) files.splice(idx,1);
+  renderFileList();
+  document.getElementById('processBtn').disabled=files.length===0;
+  document.getElementById('clearBtn').style.display=files.length?'':'none';
+}
+
+function clearAll() {
+  files.length=0; renderFileList();
+  document.getElementById('results').innerHTML='';
+  document.getElementById('fySummarySection').style.display='none';
+  document.getElementById('fySummaryCards').innerHTML='';
+  document.getElementById('fyTotalsBar').innerHTML='';
+  // reset FY aggregates
+  for(const k in allFYData) delete allFYData[k];
+  for(const k in fileBlocks) delete fileBlocks[k];
+  document.getElementById('processBtn').disabled=true;
+  document.getElementById('clearBtn').style.display='none';
+  document.getElementById('globalStatus').textContent='';
+}
+
+function updateFileUI(fe, progress, statusText) {
+  fe.progress=progress;
+  const fp=document.getElementById('fp_'+fe.id);
+  const fs=document.getElementById('fs_'+fe.id);
+  if(fp) fp.style.width=progress+'%';
+  if(fs) fs.textContent=statusText;
+}
+
+function showResult(fe, res) {
+  const resEl=document.getElementById('results');
+  const closing=res.closing;
+  const closingSign=closing<0?'Dr':'Cr';
+  const closingColor=closing<0?'var(--err)':'var(--ok)';
+  const card=document.createElement('div');
+  card.className='result-card';
+  card.id='rc_'+fe.id;
+  card.innerHTML=`
+    <div class="result-header">
+      <div class="result-filename">📊 ${fe.file.name}</div>
+      <div class="result-badge">${res.fmt.toUpperCase()} · ${res.rows} txns</div>
+    </div>
+    <div class="result-body">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Transactions</div><div class="stat-value">${res.rows.toLocaleString()}</div></div>
+        <div class="stat-card dep"><div class="stat-label">Total Deposits</div><div class="stat-value">${fmtAmt(res.totD)}</div></div>
+        <div class="stat-card wd"><div class="stat-label">Total Withdrawals</div><div class="stat-value">${fmtAmt(res.totW)}</div></div>
+        <div class="stat-card bal"><div class="stat-label">Closing Balance</div><div class="stat-value" style="color:${closingColor}">${fmtAmt(closing)} ${closingSign}</div></div>
+      </div>
+      ${res.nReord?`<div class="warn-badge">⚠ ${res.nReord} reorder(s) detected — check Warnings sheet</div>`:''}
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="redownload('${fe.id}')">
+        💾 Download Excel Report — ${res.outName}
+      </button>
+    </div>`;
+  resEl.appendChild(card);
+}
+
+function showError(fe, err) {
+  const resEl=document.getElementById('results');
+  const card=document.createElement('div');
+  card.className='result-card'; card.id='rc_'+fe.id;
+  card.innerHTML=`
+    <div class="result-header">
+      <div class="result-filename">❌ ${fe.file.name}</div>
+      <div class="result-badge err">FAILED</div>
+    </div>
+    <div class="result-body">
+      <div class="err-msg">${err}</div>
+      ${err.includes('image-based')?`<div class="img-warn">⚠ This PDF contains scanned images, not text. Only text-based (digital) PDFs can be processed. Please request a text-based statement from the bank.</div>`:''}
+    </div>`;
+  resEl.appendChild(card);
+}
+
+// Store results for re-download
+const resultStore={};
+
+function redownload(id) {
+  const store=resultStore[id];
+  if(!store||!store.final) return;
+  generateExcel(store.outName, store.final, store.warnings, store.acctNo);
+}
+
+
+// ── FY SUMMARY HELPERS ──────────────────────────────────────────────────────
+function buildFYData(final, ownAcct) {
+  const fym = {};
+  for (const r of final) {
+    const fy = getFY(r.DATE);
+    if (!fym[fy]) fym[fy] = {dep:0,wd:0,int:0,sms:0,insur:0,loan:0,chrg:0,n:0,lastBal:0,lastDate:''};
+    const cat = categorize(r.PARTICULARS, ownAcct);
+    fym[fy].dep  += r.DEPOSITS    || 0;
+    fym[fy].wd   += r.WITHDRAWALS || 0;
+    fym[fy].n    += 1;
+    fym[fy].lastBal  = r.BALANCE;
+    fym[fy].lastDate = r.DATE;
+    if (cat === 'Interest Charges') fym[fy].int   += r.WITHDRAWALS || 0;
+    if (cat === 'SMS Charges')      fym[fy].sms   += r.WITHDRAWALS || 0;
+    if (cat === 'Insurance')        fym[fy].insur += r.WITHDRAWALS || 0;
+    if (cat === 'Loan Recovery')    fym[fy].loan  += r.WITHDRAWALS || 0;
+    if (cat === 'Bank Charges')     fym[fy].chrg  += r.WITHDRAWALS || 0;
+  }
+  return fym;
+}
+
+const fmt2 = (v,cls) => `<span class="${cls}">₹${r2(Math.abs(v)).toLocaleString('en-IN',{minimumFractionDigits:2})}</span>`;
+const fmtBal = v => v < 0
+  ? `<span class="bal-neg">₹${r2(Math.abs(v)).toLocaleString('en-IN',{minimumFractionDigits:2})} Dr</span>`
+  : `<span class="bal-pos">₹${r2(Math.abs(v)).toLocaleString('en-IN',{minimumFractionDigits:2})} Cr</span>`;
+
+function fyTableHTML(fym) {
+  const rows = Object.entries(fym).sort(([a],[b])=>a.localeCompare(b));
+  const tot  = {dep:0,wd:0,int:0,sms:0,insur:0,loan:0,chrg:0,n:0};
+  let body = '';
+  for (const [fy, v] of rows) {
+    tot.dep+=v.dep; tot.wd+=v.wd; tot.int+=v.int; tot.sms+=v.sms;
+    tot.insur+=v.insur; tot.loan+=v.loan; tot.chrg+=v.chrg; tot.n+=v.n;
+    body += `<tr>
+      <td>${fy}</td>
+      <td class="dep">${fmt2(v.dep,'dep')}</td>
+      <td class="wd">${fmt2(v.wd,'wd')}</td>
+      <td class="int">${fmt2(v.int,'int')}</td>
+      <td>${fmt2(v.sms,'')}</td>
+      <td>${fmt2(v.insur,'')}</td>
+      <td>${fmt2(v.loan,'')}</td>
+      <td>${fmt2(v.chrg,'')}</td>
+      <td>${v.n.toLocaleString()}</td>
+      <td>${fmtBal(v.lastBal)}</td>
+    </tr>`;
+  }
+  body += `<tr class="totrow">
+    <td>TOTAL</td>
+    <td>${fmt2(tot.dep,'dep')}</td>
+    <td>${fmt2(tot.wd,'wd')}</td>
+    <td>${fmt2(tot.int,'int')}</td>
+    <td>${fmt2(tot.sms,'')}</td>
+    <td>${fmt2(tot.insur,'')}</td>
+    <td>${fmt2(tot.loan,'')}</td>
+    <td>${fmt2(tot.chrg,'')}</td>
+    <td>${tot.n.toLocaleString()}</td>
+    <td>—</td>
+  </tr>`;
+  return `<table class="fy-table">
+    <thead><tr>
+      <th>FY</th><th>Deposits</th><th>Withdrawals</th>
+      <th>Interest</th><th>SMS</th><th>Insurance</th>
+      <th>Loan Recovery</th><th>Bank Charges</th>
+      <th>Txns</th><th>Closing Bal</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+  </table>`;
+}
+
+// Aggregate across all files
+const allFYData = {}; // merged FY data
+
+function mergeFY(fym) {
+  for (const [fy, v] of Object.entries(fym)) {
+    if (!allFYData[fy]) allFYData[fy] = {dep:0,wd:0,int:0,sms:0,insur:0,loan:0,chrg:0,n:0,lastBal:0};
+    allFYData[fy].dep   += v.dep;
+    allFYData[fy].wd    += v.wd;
+    allFYData[fy].int   += v.int;
+    allFYData[fy].sms   += v.sms;
+    allFYData[fy].insur += v.insur;
+    allFYData[fy].loan  += v.loan;
+    allFYData[fy].chrg  += v.chrg;
+    allFYData[fy].n     += v.n;
+    allFYData[fy].lastBal = v.lastBal; // last file wins for closing balance
+  }
+}
+
+const fileBlocks = {}; // per-file FY block HTML
+
+function renderFYPage() {
+  const sec = document.getElementById('fySummarySection');
+  const cardsEl = document.getElementById('fySummaryCards');
+  const totBar  = document.getElementById('fyTotalsBar');
+  if (!Object.keys(allFYData).length) { sec.style.display='none'; return; }
+  sec.style.display = '';
+
+  // Per-file blocks
+  cardsEl.innerHTML = Object.entries(fileBlocks).map(([fname, tbl]) => `
+    <div>
+      <div class="fy-file-title">📄 ${fname}</div>
+      <div class="fy-file-block">${tbl}</div>
+    </div>`).join('');
+
+  // Aggregate totals
+  totBar.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:14px;">
+      📊 Grand Total — All Files Combined
+    </div>
+    ${fyTableHTML(allFYData)}`;
+}
+
+async function processAll() {
+  const btn=document.getElementById('processBtn');
+  btn.disabled=true;
+  btn.textContent='Processing…';
+  document.getElementById('clearBtn').disabled=true;
+  document.getElementById('results').innerHTML='';
+  document.getElementById('globalStatus').textContent='';
+
+  let done=0, ok=0;
+  for (const fe of files) {
+    updateFileUI(fe, 0, 'Processing…');
+    try {
+      const res = await processPDF(fe, (pct, msg) => updateFileUI(fe, pct, msg));
+      fe.status='done'; updateFileUI(fe, 100, '✓ Complete');
+      // Store for re-download
+      const full = fmt=>fmt; // placeholder
+      resultStore[fe.id]={outName:res.outName, final:res.final, warnings:res.warnings, acctNo:res.acctNo};
+      showResult(fe, res);
+      // Build FY data and update page
+      const fym = buildFYData(res.final, res.acctNo);
+      mergeFY(fym);
+      fileBlocks[fe.file.name] = fyTableHTML(fym);
+      renderFYPage();
+      ok++;
+    } catch(e) {
+      fe.status='error'; updateFileUI(fe, 0, '✗ Error');
+      showError(fe, String(e.message||e));
+    }
+    done++;
+    document.getElementById('globalStatus').textContent=`${done}/${files.length} processed`;
+  }
+
+  btn.disabled=files.length===0;
+  btn.textContent='⚡ Generate Excel Reports';
+  document.getElementById('clearBtn').disabled=false;
+  document.getElementById('globalStatus').textContent=
+    `Done — ${ok} succeeded, ${done-ok} failed.`;
+}
+
+// ━━━━ DRAG AND DROP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const dz=document.getElementById('dropzone');
+const fi=document.getElementById('fileInput');
+fi.addEventListener('change', e=>{ addFiles([...e.target.files]); fi.value=''; });
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag'); addFiles([...e.dataTransfer.files]); });
+</script>
+</body>
+</html>
