@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ITR Computation Tool — Multi-Year (India)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f0efe9;--sf:#fff;--bd:#dddad2;--gn:#1b4332;--gn2:#2d6a4f;--gn3:#40916c;--gnl:#d8f3dc;--bl:#1a3a8a;--bll:#e8edf9;--rd:#7f1d1d;--rdl:#fef2f2;--go:#92600a;--gol:#fffbeb;--mu:#6b7280;--lt:#f8f7f4;--ink:#111827;--ink2:#374151}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;min-height:100vh}
+.app{max-width:860px;margin:0 auto;padding:1.5rem 1rem 5rem}
+.hdr{background:var(--gn);border-radius:12px;padding:1.5rem 1.75rem;color:#fff;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.hdr::after{content:'';position:absolute;right:-30px;top:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.05)}
+.hdr-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.hdr h1{font-size:21px;font-weight:700;letter-spacing:-.03em;margin-bottom:3px}
+.hdr-sub{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace}
+.ay-pill{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 14px;font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;white-space:nowrap;flex-shrink:0}
+.bdgs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.bdg{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:20px;font-size:10px;padding:3px 10px;letter-spacing:.04em;font-family:'JetBrains Mono',monospace}
+.bdg.hi{background:rgba(255,204,0,.18);border-color:rgba(255,204,0,.35);color:#ffe08a}
+.tabs{display:flex;background:var(--sf);border:1.5px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:1.25rem}
+.tab{flex:1;padding:11px 8px;font-size:13px;font-weight:600;background:none;border:none;cursor:pointer;color:var(--mu);font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;transition:.18s}
+.tab.on{background:var(--gn);color:#fff}
+.tab:not(:last-child){border-right:1px solid var(--bd)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:1.25rem;margin-bottom:1rem}
+.ctitle{font-size:10px;font-weight:700;color:#c0bdb5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.85rem;padding-bottom:.45rem;border-bottom:1px solid #f0ede8;display:flex;align-items:center;gap:7px}
+.dz{border:2px dashed #c4c0b5;border-radius:10px;padding:2.5rem 1.5rem;text-align:center;cursor:pointer;background:var(--lt);position:relative;transition:.2s}
+.dz:hover,.dz.over{border-color:var(--gn3);background:#f0f9f4}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-ico{font-size:40px;margin-bottom:10px}
+.dz-t{font-size:16px;font-weight:700;color:var(--gn);margin-bottom:4px}
+.dz-s{font-size:12px;color:var(--mu);line-height:1.6}
+.ftag{display:inline-block;font-size:10px;padding:2px 8px;border:1px solid #ddd;border-radius:3px;color:#666;background:#fff;font-family:'JetBrains Mono',monospace;margin:2px}
+.fpill{display:none;margin-top:.75rem;padding:10px 14px;background:#eef7f2;border:1px solid #b8ddc8;border-radius:8px;align-items:center;gap:10px;font-size:13px}
+.fpill.show{display:flex}
+.fn{flex:1;font-weight:600;color:var(--gn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fsz{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+.fdel{background:none;border:none;cursor:pointer;color:#bbb;padding:3px 7px;font-size:18px;border-radius:4px;transition:.15s}
+.fdel:hover{color:#c00;background:#fef2f2}
+.stat{display:none;margin-top:.75rem;padding:10px 14px;border-radius:8px;font-size:13px;align-items:center;gap:9px}
+.stat.loading{background:var(--gol);color:var(--go);border:1px solid #f0d080;display:flex}
+.stat.error{background:var(--rdl);color:var(--rd);border:1px solid #fca5a5;display:flex}
+.stat.ok{background:var(--gnl);color:var(--gn2);border:1px solid #74c69d;display:flex}
+.spin{width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pbox{display:none;margin-top:.75rem;padding:11px 14px;background:var(--gnl);border:1px solid #74c69d;border-radius:8px}
+.pbox.show{display:block}
+.pttl{font-size:10px;font-weight:700;color:var(--gn2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.pgrid{display:flex;flex-wrap:wrap;gap:5px}
+.ptag{font-size:11px;background:#fff;border:1px solid #95d5b2;border-radius:5px;padding:3px 8px;color:var(--gn);font-family:'JetBrains Mono',monospace}
+.ptag span{color:#555;font-weight:400}
+.rawpre{display:none;margin-top:.6rem;background:#f5f4f0;border:1px solid #ddd;border-radius:6px;padding:8px 12px;font-size:11px;font-family:'JetBrains Mono',monospace;max-height:110px;overflow-y:auto;color:#666;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:11px 16px;font-size:14px;font-weight:600;border:none;border-radius:8px;cursor:pointer;margin-top:.75rem;transition:.15s;font-family:inherit}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn-gn{background:var(--gn);color:#e8f5ee}.btn-gn:hover:not(:disabled){background:var(--gn2)}
+.btn-bl{background:var(--bl);color:#fff}.btn-bl:hover:not(:disabled){background:#254fb0}
+.btns{display:flex;gap:8px;margin-top:.85rem;flex-wrap:wrap}
+.btns .btn{flex:1;min-width:150px;margin-top:0}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:.75rem}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px;margin-bottom:.75rem}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:.75rem}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:10px;color:var(--mu);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.07em}
+.fld input,.fld select{padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px;color:var(--ink);background:#fff;outline:none;font-family:inherit;transition:.15s}
+.fld input:focus,.fld select:focus{border-color:var(--gn3);box-shadow:0 0 0 2.5px rgba(64,145,108,.12)}
+.fld.af input,.fld.af select{background:#eef7f2;border-color:#74c69d}
+.ibox{background:var(--lt);border:1.5px solid var(--bd);border-radius:8px;padding:10px 12px;transition:.15s}
+.ibox:focus-within{border-color:var(--gn3)}
+.ibox label{display:block;font-size:10px;color:var(--mu);font-family:'JetBrains Mono',monospace;letter-spacing:.04em;margin-bottom:4px;text-transform:uppercase}
+.ibox input{border:none;background:transparent;font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--ink);width:100%;outline:none}
+.ibox .hint{font-size:10px;color:var(--mu);margin-top:3px}
+.ibox.af{background:#eef7f2;border-color:#74c69d}
+.ibox.af input{color:var(--gn2)}
+.slbl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.1em;margin:.9rem 0 .55rem;padding-left:3px;border-left:3px solid var(--gn3)}
+.rnote{background:var(--bll);border:1px solid #a8bce8;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--bl);margin-bottom:.75rem;line-height:1.7}
+.nats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.85rem}
+.nat{padding:5px 13px;border:1.5px solid #ddd;border-radius:20px;font-size:12px;cursor:pointer;background:#fff;color:#555;font-family:inherit;transition:.15s}
+.nat.on{background:var(--gn);color:#fff;border-color:var(--gn)}
+.dedp{display:none}.dedp.show{display:block}
+.qcalc{display:none;background:var(--gnl);border:1px solid #74c69d;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--gn2);font-family:'JetBrains Mono',monospace;margin-top:.6rem}
+.divr{display:flex;align-items:center;gap:10px;margin:.75rem 0;color:#ccc;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.06em}
+.divr::before,.divr::after{content:'';flex:1;height:1px;background:#e8e4da}
+.rw{margin-top:1.75rem;display:none}
+.rdoc{background:#fff;border:1px solid #ddd;border-radius:10px;overflow:hidden;font-size:13px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.rhead{background:var(--gn);color:#fff;padding:1.4rem 1.6rem}
+.rhead h2{font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px}
+.rmeta{font-size:11px;opacity:.65;font-family:'JetBrains Mono',monospace;display:flex;gap:14px;flex-wrap:wrap;margin-top:5px}
+.astrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));border-bottom:1px solid #e8e4da}
+.ac{padding:11px 16px;border-right:1px solid #e8e4da}.ac:last-child{border-right:none}
+.al{font-size:9px;color:#bbb;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.av{font-size:14px;font-weight:700;color:var(--ink)}
+.mbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));background:var(--gnl);border-bottom:2px solid #95d5b2}
+.mc{padding:11px 14px;border-right:1px solid rgba(64,145,108,.2)}.mc:last-child{border-right:none}
+.mlbl{font-size:9px;color:var(--gn2);text-transform:uppercase;letter-spacing:.07em;font-family:'JetBrains Mono',monospace;margin-bottom:3px}
+.mval{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.mval.nil{color:var(--gn2)}.mval.pos{color:var(--rd)}.mval.ref{color:var(--bl)}
+.ct{width:100%;border-collapse:collapse}
+.ct td{padding:9px 16px;border-bottom:1px solid #f0ede8;vertical-align:top;line-height:1.4}
+.ct td:last-child{text-align:right;font-family:'JetBrains Mono',monospace;white-space:nowrap;font-size:13px;min-width:170px}
+.ct tr.sh td{background:var(--gn);color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:8px 16px;border-bottom:none}
+.ct tr.sh td:last-child{text-align:left;font-family:inherit;font-size:11px}
+.ct tr.ind td{padding-left:32px;color:var(--ink2);font-size:12.5px}
+.ct tr.sub td{background:#f8f9f0;font-weight:700}
+.ct tr.grand td{background:#1b4332;color:#d8f3dc;font-weight:700;font-size:14px;font-family:'JetBrains Mono',monospace;border-bottom:none}
+.ct tr.grand.pay td{background:#7f1d1d;color:#fee2e2}
+.ct tr.grand.ref td{background:#1a3a5f;color:#dbeafe}
+.ct tr:hover:not(.sh):not(.grand) td{background:#fafaf6}
+.dnote{padding:13px 18px;font-size:11px;color:var(--mu);background:#faf9f6;border-top:1px solid #eee;line-height:1.8;font-family:'JetBrains Mono',monospace}
+.dlrow{display:flex;gap:10px;padding:13px 16px;border-top:2px solid var(--gnl);background:#f8f9f4;flex-wrap:wrap}
+.dlrow .btn{flex:1;min-width:150px;margin-top:0;font-size:13px;padding:9px 14px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transform:translateY(8px);transition:.3s;pointer-events:none;z-index:999;max-width:320px}
+.toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="hdr">
+  <div class="hdr-row">
+    <div><div class="hdr-sub">Income Tax Department of India</div><h1>ITR Computation Tool</h1></div>
+    <div class="ay-pill" id="ayPill">AY 2026-27</div>
+  </div>
+  <div class="bdgs">
+    <span class="bdg" id="yearRangeBdg">Multi-Year</span>
+    <span class="bdg">Exact Line-Index PDF Parsing</span>
+    <span class="bdg">Manual Entry</span>
+    <span class="bdg">Word .docx Export</span>
+    <span class="bdg hi">New &amp; Old Regime</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" id="tabPdf" onclick="switchTab('pdf')"><span>📄</span> PDF Upload &amp; Auto-Fill</button>
+  <button class="tab" id="tabManual" onclick="switchTab('manual')"><span>✏️</span> Manual Entry</button>
+</div>
+
+<!-- PDF MODE -->
+<div id="panelPdf">
+  <div class="card">
+    <div class="ctitle">📂 Upload ITR Acknowledgement PDF</div>
+    <div class="dz" id="dz" ondragover="dzOv(event)" ondragleave="dzLv()" ondrop="dzDp(event)">
+      <input type="file" id="pdfIn" accept=".pdf" onchange="onFile(this.files[0])">
+      <div class="dz-ico">📑</div>
+      <div class="dz-t">Drop your ITR Acknowledgement PDF here</div>
+      <div class="dz-s">Or click to browse · All ITR forms supported<br><span class="ftag">.pdf</span></div>
+    </div>
+    <div class="fpill" id="fpill">
+      <span style="font-size:20px">📄</span>
+      <span class="fn" id="fn">—</span>
+      <span class="fsz" id="fsz">—</span>
+      <button class="fdel" onclick="clearFile()">✕</button>
+    </div>
+    <div class="stat" id="stat"></div>
+    <div class="rawpre" id="rawpre"></div>
+    <div class="pbox" id="pbox">
+      <div class="pttl">✅ Auto-filled from PDF — verify below before downloading</div>
+      <div class="pgrid" id="pgrid"></div>
+    </div>
+    <button class="btn btn-gn" id="btnRead" disabled onclick="readPDF()">⚡ Read PDF &amp; Auto-Fill Fields</button>
+  </div>
+
+  <div id="pdfCard" style="display:none">
+    <div class="card">
+      <div class="ctitle">👤 Assessee &amp; Filing Details</div>
+      <div class="g2">
+        <div class="fld" id="f-vname"><label>Full Name</label><input id="vname" placeholder="Auto-filled from PDF"></div>
+        <div class="fld" id="f-vpan"><label>PAN</label><input id="vpan" style="font-family:'JetBrains Mono',monospace;letter-spacing:.06em"></div>
+      </div>
+      <div class="fld" style="margin-bottom:.75rem" id="f-vaddr"><label>Address</label><input id="vaddr"></div>
+      <div class="g4">
+        <div class="fld" id="f-vstatus"><label>Status</label>
+          <select id="vstatus"><option>Individual</option><option>HUF</option><option>Firm</option><option>Company</option><option>AOP/BOI</option></select>
+        </div>
+        <div class="fld" id="f-vform"><label>ITR Form</label>
+          <select id="vform"><option>ITR-1 (SAHAJ)</option><option>ITR-2</option><option>ITR-3</option><option>ITR-4 (SUGAM)</option><option>ITR-5</option><option>ITR-6</option><option>ITR-7</option></select>
+        </div>
+        <div class="fld" id="f-vdate"><label>Date of Filing</label><input type="date" id="vdate"></div>
+        <div class="fld" id="f-vay"><label>Assessment Year</label><select id="vay" onchange="toggleDed('pdf')"></select></div>
+      </div>
+      <div class="g2">
+        <div class="fld" id="f-vakno"><label>Acknowledgement Number</label><input id="vakno" style="font-family:'JetBrains Mono',monospace"></div>
+        <div class="fld" id="f-vfiled"><label>Filed Under Section</label>
+          <select id="vfiled">
+            <option value="139(1)-On or before due date">139(1) — On or before due date</option>
+            <option value="139(4)">139(4) — Belated Return</option>
+            <option value="139(5)">139(5) — Revised Return</option>
+            <option value="148">148 — In response to notice</option>
+          </select>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="fld" id="f-vverify"><label>Verification Mode</label>
+          <select id="vverify"><option>Aadhaar OTP</option><option>Net Banking EVC</option><option>Bank Account EVC</option><option>Demat Account EVC</option><option>DSC</option><option>Paper ITR-V</option></select>
+        </div>
+        <div class="fld"><label>Tax Regime</label>
+          <select id="vregime" onchange="toggleDed('pdf')">
+            <option value="new">New Tax Regime</option>
+            <option value="old">Old Tax Regime</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">💰 Income &amp; Tax Fields (from Acknowledgement)</div>
+      <div class="rnote" id="pdf-rnote">Loading regime details…</div>
+      <div class="slbl">Nature of Income</div>
+      <div class="nats" id="pdfNats">
+        <button class="nat on" onclick="setNat('salary','pdfNats','pdfNat')" data-v="salary">Salary/Pension</button>
+        <button class="nat" onclick="setNat('hp','pdfNats','pdfNat')" data-v="hp">House Property</button>
+        <button class="nat" onclick="setNat('biz','pdfNats','pdfNat')" data-v="biz">Business/Prof.</button>
+        <button class="nat" onclick="setNat('cg','pdfNats','pdfNat')" data-v="cg">Capital Gains</button>
+        <button class="nat" onclick="setNat('other','pdfNats','pdfNat')" data-v="other">Other Sources</button>
+        <button class="nat" onclick="setNat('mixed','pdfNats','pdfNat')" data-v="mixed">Mixed</button>
+      </div>
+      <input type="hidden" id="pdfNat" value="salary">
+      <div class="g4">
+        <div class="ibox" id="ib-vinc"><label>Total Income (Field 1A)</label><input type="text" id="vinc" placeholder="0" oninput="pdfCalc()"><div class="hint">As per acknowledgement</div></div>
+        <div class="ibox" id="ib-vloss"><label>Business Loss (Field 1)</label><input type="text" id="vloss" placeholder="0"></div>
+        <div class="ibox" id="ib-vtax"><label>Net Tax Payable (Field 4)</label><input type="text" id="vtax" placeholder="0"></div>
+        <div class="ibox" id="ib-vint"><label>Interest &amp; Fee (Field 5)</label><input type="text" id="vint" placeholder="0" oninput="pdfCalc()"></div>
+      </div>
+      <div class="g4">
+        <div class="ibox" id="ib-vtotal"><label>Total Tax+Int+Fee (Field 6)</label><input type="text" id="vtotal" placeholder="0"></div>
+        <div class="ibox" id="ib-vtpaid"><label>Taxes Paid (Field 7)</label><input type="text" id="vtpaid" placeholder="0" oninput="pdfCalc()"></div>
+        <div class="ibox" id="ib-vrefund"><label>Tax Payable / Refundable (Field 8)</label><input type="text" id="vrefund" placeholder="0"></div>
+        <div></div>
+      </div>
+      <div class="dedp" id="pdf-ded">
+        <div class="divr">CHAPTER VI-A DEDUCTIONS (OLD REGIME)</div>
+        <div class="g4">
+          <div class="ibox"><label>80C (LIC/PPF/ELSS)</label><input type="number" id="v80c" placeholder="0" oninput="pdfCalc()"><div class="hint">Max ₹1,50,000</div></div>
+          <div class="ibox"><label>80D Medical Ins.</label><input type="number" id="v80d" placeholder="0" oninput="pdfCalc()"><div class="hint">Max ₹1,00,000</div></div>
+          <div class="ibox"><label>80CCD(1B) NPS</label><input type="number" id="vnps" placeholder="0" oninput="pdfCalc()"><div class="hint">Max ₹50,000</div></div>
+          <div class="ibox"><label>Other Deductions</label><input type="number" id="vdedoth" placeholder="0" oninput="pdfCalc()"></div>
+        </div>
+      </div>
+      <div class="qcalc" id="pdf-qcalc"></div>
+      <div class="btns">
+        <button class="btn btn-gn" onclick="previewPdf()">👁 Preview Computation</button>
+        <button class="btn btn-bl" onclick="dlDocxPdf()">⬇ Download Word (.docx)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL MODE -->
+<div id="panelManual" style="display:none">
+  <div class="card">
+    <div class="ctitle">👤 Assessee Details</div>
+    <div class="g2">
+      <div class="fld"><label>Full Name</label><input id="m_name" placeholder="As per ITR"></div>
+      <div class="fld"><label>Father's / Guardian's Name (optional)</label><input id="m_fname"></div>
+    </div>
+    <div class="g2">
+      <div class="fld"><label>PAN</label><input id="m_pan" style="font-family:'JetBrains Mono',monospace;letter-spacing:.06em"></div>
+      <div class="fld"><label>Assessment Year</label>
+        <select id="m_ay" onchange="toggleDed('manual')"></select>
+      </div>
+    </div>
+    <div class="fld" style="margin-bottom:.75rem"><label>Address</label><input id="m_addr"></div>
+    <div class="g3">
+      <div class="fld"><label>Status</label><select id="m_status"><option>Individual</option><option>HUF</option><option>Firm</option><option>Company</option><option>AOP/BOI</option></select></div>
+      <div class="fld"><label>ITR Form</label><select id="m_form"><option>ITR-1 (SAHAJ)</option><option>ITR-2</option><option>ITR-3</option><option>ITR-4 (SUGAM)</option><option>ITR-5</option><option>ITR-6</option><option>ITR-7</option></select></div>
+      <div class="fld"><label>Date of Filing</label><input type="date" id="m_date"></div>
+    </div>
+    <div class="g2">
+      <div class="fld"><label>Acknowledgement Number</label><input id="m_ackno" style="font-family:'JetBrains Mono',monospace"></div>
+      <div class="fld"><label>Filed Under Section</label>
+        <select id="m_filed">
+          <option value="139(1)-On or before due date">139(1) — On or before due date</option>
+          <option value="139(4)">139(4) — Belated Return</option>
+          <option value="139(5)">139(5) — Revised Return</option>
+          <option value="148">148 — In response to notice</option>
+        </select>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fld"><label>Verification Mode</label><select id="m_verify"><option>Aadhaar OTP</option><option>Net Banking EVC</option><option>Bank Account EVC</option><option>Demat Account EVC</option><option>DSC</option><option>Paper ITR-V</option></select></div>
+      <div class="fld"><label>Tax Regime</label>
+        <select id="m_regime" onchange="toggleDed('manual')">
+          <option value="new">New Tax Regime</option>
+          <option value="old">Old Tax Regime</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">💰 Income Details</div>
+    <div class="rnote" id="m-rnote">Loading regime details…</div>
+    <div class="slbl">Nature of Income</div>
+    <div class="nats" id="manualNats">
+      <button class="nat on" onclick="setNat('salary','manualNats','manualNat')" data-v="salary">Salary/Pension</button>
+      <button class="nat" onclick="setNat('hp','manualNats','manualNat')" data-v="hp">House Property</button>
+      <button class="nat" onclick="setNat('biz','manualNats','manualNat')" data-v="biz">Business/Prof.</button>
+      <button class="nat" onclick="setNat('cg','manualNats','manualNat')" data-v="cg">Capital Gains</button>
+      <button class="nat" onclick="setNat('other','manualNats','manualNat')" data-v="other">Other Sources</button>
+      <button class="nat" onclick="setNat('mixed','manualNats','manualNat')" data-v="mixed">Mixed</button>
+    </div>
+    <input type="hidden" id="manualNat" value="salary">
+    <div class="slbl">Income Heads</div>
+    <div class="g4">
+      <div class="ibox"><label>Salary / Pension</label><input type="number" id="m_sal" placeholder="0" oninput="mCalc()"><div class="hint">Gross incl. allowances</div></div>
+      <div class="ibox"><label>House Property</label><input type="number" id="m_hp" placeholder="0" oninput="mCalc()"><div class="hint">Net (–ve for loss)</div></div>
+      <div class="ibox"><label>Business / Profession</label><input type="number" id="m_biz" placeholder="0" oninput="mCalc()"></div>
+      <div class="ibox"><label>Capital Gains</label><input type="number" id="m_cg" placeholder="0" oninput="mCalc()"></div>
+    </div>
+    <div class="g4">
+      <div class="ibox"><label>Other Sources</label><input type="number" id="m_oth" placeholder="0" oninput="mCalc()"></div>
+      <div class="ibox"><label>Business Loss (–)</label><input type="number" id="m_loss" placeholder="0" oninput="mCalc()"></div>
+      <div class="ibox" style="border-color:var(--gn3);background:#f0fdf4"><label>Gross Total Income</label><input type="text" id="m_grossd" readonly style="color:var(--gn2);font-weight:700"></div>
+      <div></div>
+    </div>
+    <div class="dedp" id="m-ded">
+      <div class="divr">CHAPTER VI-A DEDUCTIONS (OLD REGIME)</div>
+      <div class="g4">
+        <div class="ibox"><label>80C (LIC/PPF/ELSS)</label><input type="number" id="m_80c" placeholder="0" oninput="mCalc()"><div class="hint">Max ₹1,50,000</div></div>
+        <div class="ibox"><label>80D Medical Ins.</label><input type="number" id="m_80d" placeholder="0" oninput="mCalc()"><div class="hint">Max ₹1,00,000</div></div>
+        <div class="ibox"><label>80CCD(1B) NPS</label><input type="number" id="m_nps" placeholder="0" oninput="mCalc()"><div class="hint">Max ₹50,000</div></div>
+        <div class="ibox"><label>Other Deductions</label><input type="number" id="m_doth" placeholder="0" oninput="mCalc()"></div>
+      </div>
+    </div>
+    <div class="divr">TOTAL INCOME</div>
+    <div class="g2">
+      <div class="ibox" style="border-color:var(--bl);background:var(--bll)"><label>Total Income (Field 1A)</label><input type="text" id="m_totald" readonly style="color:var(--bl);font-weight:700;font-size:18px"></div>
+      <div class="ibox"><label>Override Total Income (optional)</label><input type="number" id="m_ovr" placeholder="0" oninput="mCalc()"><div class="hint">Overrides computed value if set</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">🏦 Tax Details</div>
+    <div class="g3">
+      <div class="ibox"><label>Taxes Paid — TDS/Adv/SAT (Field 7)</label><input type="number" id="m_tpaid" placeholder="0" oninput="mCalc()"></div>
+      <div class="ibox"><label>Interest &amp; Fee Payable (Field 5)</label><input type="number" id="m_int" placeholder="0" oninput="mCalc()"></div>
+      <div class="ibox" id="m_netbox" style="border-color:var(--gn3);background:#f0fdf4"><label>Net Payable / (Refundable)</label><input type="text" id="m_netd" readonly style="font-weight:700"></div>
+    </div>
+  </div>
+  <div class="btns">
+    <button class="btn btn-gn" onclick="previewManual()">👁 Preview Computation</button>
+    <button class="btn btn-bl" onclick="dlDocxManual()">⬇ Download Word (.docx)</button>
+  </div>
+</div>
+
+<div class="rw" id="rw"><div class="rdoc" id="rdoc"></div><div class="dlrow" id="dlrow"></div></div>
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var pdfData=null,tags={};
+var NL={salary:'Salary / Pension',hp:'House Property',biz:'Business / Profession',cg:'Capital Gains',other:'Other Sources',mixed:'Mixed / Multiple Heads'};
+var g=id=>document.getElementById(id);
+var gv=id=>{var e=g(id);return e?e.value.trim():''};
+var gn=id=>{var n=parseFloat((g(id)||{}).value||'0');return isNaN(n)?0:n};
+
+// ════════════════════════════════════════════════════════════════════════
+// ASSESSMENT-YEAR TAX TABLE — single source of truth for slabs & rebate
+// rules. Every other part of the app reads from this table by the AY that
+// was either parsed from the uploaded PDF or chosen in Manual Entry — no
+// computation or label anywhere is tied to one fixed assessment year.
+// To support a future AY once its Finance Act is known, add one entry here;
+// nothing else needs to change.
+// ════════════════════════════════════════════════════════════════════════
+var AY_TABLE={
+  '2026-27':{defaultRegime:'new',new:{slabs:[[0,400000,0],[400000,800000,.05],[800000,1200000,.10],[1200000,1600000,.15],[1600000,2000000,.20],[2000000,2400000,.25],[2400000,Infinity,.30]],rebateMode:'marginal',rebateThreshold:1200000,noteSlabs:'0–4L=Nil | 4–8L=5% | 8–12L=10% | 12–16L=15% | 16–20L=20% | 20–24L=25% | Above 24L=30%'}},
+  '2025-26':{defaultRegime:'new',new:{slabs:[[0,300000,0],[300000,700000,.05],[700000,1000000,.10],[1000000,1200000,.15],[1200000,1500000,.20],[1500000,Infinity,.30]],rebateMode:'marginal',rebateThreshold:700000,noteSlabs:'0–3L=Nil | 3–7L=5% | 7–10L=10% | 10–12L=15% | 12–15L=20% | Above 15L=30%'}},
+  '2024-25':{defaultRegime:'new',new:{slabs:[[0,300000,0],[300000,600000,.05],[600000,900000,.10],[900000,1200000,.15],[1200000,1500000,.20],[1500000,Infinity,.30]],rebateMode:'marginal',rebateThreshold:700000,noteSlabs:'0–3L=Nil | 3–6L=5% | 6–9L=10% | 9–12L=15% | 12–15L=20% | Above 15L=30%'}},
+  '2023-24':{defaultRegime:'old',new:{slabs:[[0,250000,0],[250000,500000,.05],[500000,750000,.10],[750000,1000000,.15],[1000000,1250000,.20],[1250000,1500000,.25],[1500000,Infinity,.30]],rebateMode:'cliff',rebateThreshold:500000,noteSlabs:'0–2.5L=Nil | 2.5–5L=5% | 5–7.5L=10% | 7.5–10L=15% | 10–12.5L=20% | 12.5–15L=25% | Above 15L=30%'}},
+  '2022-23':{defaultRegime:'old',new:{slabs:[[0,250000,0],[250000,500000,.05],[500000,750000,.10],[750000,1000000,.15],[1000000,1250000,.20],[1250000,1500000,.25],[1500000,Infinity,.30]],rebateMode:'cliff',rebateThreshold:500000,noteSlabs:'0–2.5L=Nil | 2.5–5L=5% | 5–7.5L=10% | 7.5–10L=15% | 10–12.5L=20% | 12.5–15L=25% | Above 15L=30%'}},
+  '2021-22':{defaultRegime:'old',new:{slabs:[[0,250000,0],[250000,500000,.05],[500000,750000,.10],[750000,1000000,.15],[1000000,1250000,.20],[1250000,1500000,.25],[1500000,Infinity,.30]],rebateMode:'cliff',rebateThreshold:500000,noteSlabs:'0–2.5L=Nil | 2.5–5L=5% | 5–7.5L=10% | 7.5–10L=15% | 10–12.5L=20% | 12.5–15L=25% | Above 15L=30%'}}
+};
+// Old Regime slabs (general individual, age<60) have stayed unchanged across this
+// whole span, so one constant is factually correct here — not a hardcoded shortcut.
+var OLD_REGIME={slabs:[[0,250000,0],[250000,500000,.05],[500000,1000000,.20],[1000000,Infinity,.30]],rebateMode:'cliff',rebateThreshold:500000,noteSlabs:'0–2.5L=Nil | 2.5–5L=5% | 5–10L=20% | Above 10L=30%'};
+var AY_LIST=Object.keys(AY_TABLE).sort().reverse(); // newest AY first
+
+function rupee(n){return'Rs.'+Math.round(n).toLocaleString('en-IN')}
+function slabLabel(f,t,r){var rl=r===0?'Nil':(r*100)+'%';if(t===Infinity)return'Above '+rupee(f)+' @ '+rl;if(f===0)return'Up to '+rupee(t)+' — '+rl;return rupee(f+1)+' to '+rupee(t)+' @ '+rl}
+function calcSlabs(inc,slabs){if(inc<=0)return{tax:0,rows:[]};var tax=0,rows=[];slabs.forEach(function(s){var f=s[0],t=s[1],r=s[2];if(inc<=f)return;var amt=Math.round((Math.min(inc,t)-f)*r);rows.push({l:slabLabel(f,t,r),tax:amt});tax+=amt});return{tax:tax,rows:rows}}
+// Resolves ANY assessment-year string to a slab/rebate config. AYs inside AY_TABLE
+// use their own Finance Act rules; an AY outside the table (an older PDF than we
+// have data for, or a future AY not yet legislated) falls back to the nearest
+// known year as a best-effort estimate — it never silently substitutes a fixed
+// "2026-27" default for an AY that doesn't match.
+function ayCfg(ay){
+  if(AY_TABLE[ay])return AY_TABLE[ay];
+  var sy=parseInt((ay||'').split('-')[0],10);
+  if(isNaN(sy))return AY_TABLE[AY_LIST[0]];
+  var newest=parseInt(AY_LIST[0],10),oldest=parseInt(AY_LIST[AY_LIST.length-1],10);
+  if(sy>=newest)return AY_TABLE[AY_LIST[0]];
+  if(sy<=oldest)return AY_TABLE[AY_LIST[AY_LIST.length-1]];
+  for(var i=0;i<AY_LIST.length;i++){if(parseInt(AY_LIST[i],10)<=sy)return AY_TABLE[AY_LIST[i]]}
+  return AY_TABLE[AY_LIST[0]]
+}
+function calcRegime(inc,ay,regime){
+  var slabCfg=regime==='old'?OLD_REGIME:ayCfg(ay).new;
+  var r=calcSlabs(inc,slabCfg.slabs);var bt=r.tax,reb=0,rl='';var th=slabCfg.rebateThreshold;
+  if(inc<=th){reb=bt;rl=regime==='old'?('Full rebate u/s 87A (Old Regime, income ≤ '+rupee(th)+')'):('Full rebate u/s 87A (Total income does not exceed '+rupee(th)+')')}
+  else if(slabCfg.rebateMode==='marginal'){var m=bt-(inc-th);if(m>0&&m<bt){reb=m;rl='Marginal relief u/s 87A'}}
+  var tar=Math.max(0,bt-reb);
+  return{basicTax:bt,rows:r.rows,rebate:reb,rebLbl:rl,tar:tar}
+}
+function regimeNoteHTML(ay,regime){
+  if(regime==='old')return'<strong>Old Tax Regime:</strong> Slabs: '+OLD_REGIME.noteSlabs+'. Chapter VI-A deductions apply. Rebate u/s 87A if total income ≤ '+rupee(OLD_REGIME.rebateThreshold)+'.';
+  var n=ayCfg(ay).new;
+  var rebTxt=n.rebateMode==='marginal'?('Rebate u/s 87A for income ≤ '+rupee(n.rebateThreshold)+' (with marginal relief just above).'):('Rebate u/s 87A only if income ≤ '+rupee(n.rebateThreshold)+' (no marginal relief).');
+  return'<strong>New Tax Regime (AY '+ay+'):</strong> Slabs: '+n.noteSlabs+'. '+rebTxt+' No Chapter VI-A deductions.'
+}
+function slabNoteText(ay,regime){return regime==='old'?('Old Tax Regime Slabs: '+OLD_REGIME.noteSlabs+'.'):('New Tax Regime Slabs (AY '+ay+'): '+ayCfg(ay).new.noteSlabs+'.')}
+function buildAYOptions(){return AY_LIST.map(function(y){return'<option value="'+y+'">'+y+'</option>'}).join('')}
+function setAyPill(ay){var p=g('ayPill');if(p)p.textContent='AY '+ay;document.title='ITR Computation Tool — AY '+ay}
+function activeMode(){return(g('panelPdf')&&g('panelPdf').style.display!=='none')?'pdf':'manual'}
+function currentAY(mode){return mode==='pdf'?(gv('vay')||AY_LIST[0]):(gv('m_ay')||AY_LIST[0])}
+function syncPill(){setAyPill(currentAY(activeMode()))}
+// Preserves a PDF-detected AY even when it falls outside AY_TABLE (a very old or a
+// not-yet-legislated future acknowledgement) by adding it to the dropdown instead
+// of discarding it — computation then proceeds via ayCfg()'s fallback rather than
+// a fixed year.
+function ensureAYOption(selectId,ay){
+  var sel=g(selectId);if(!sel||!ay||!/^\d{4}-\d{2,4}$/.test(ay))return false;
+  for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===ay){sel.selectedIndex=i;return true}}
+  var opt=document.createElement('option');opt.value=ay;opt.text=ay+(AY_TABLE[ay]?'':' (auto-detected)');sel.insertBefore(opt,sel.firstChild);sel.selectedIndex=0;
+  if(!AY_TABLE[ay])toast('AY '+ay+' detected from PDF — exact slabs aren\'t on file, using nearest known year as an estimate.');
+  return true
+}
+function refreshRegimeOptions(prefix){
+  var ay=prefix==='v'?currentAY('pdf'):currentAY('manual');var sel=g(prefix==='v'?'vregime':'m_regime');if(!sel)return;
+  var newDef=ayCfg(ay).defaultRegime==='new';
+  sel.options[0].text='New Tax Regime'+(newDef?' (Default for AY '+ay+')':' (Optional for AY '+ay+')');
+  sel.options[1].text='Old Tax Regime'+(newDef?' (Opted out)':' (Default for AY '+ay+')')
+}
+function toast(m){var t=g('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800)}
+function setStat(tp,m){var s=g('stat');s.className='stat '+tp;s.innerHTML=(tp==='loading'?'<div class="spin"></div>':'')+'<span>'+m+'</span>';s.style.display='flex'}
+function inr(n){return n===0?'NIL':'Rs.'+Math.round(Math.abs(n)).toLocaleString('en-IN')}
+function sInr(n){if(n===0)return'NIL';if(n<0)return'(Rs.'+Math.round(Math.abs(n)).toLocaleString('en-IN')+') Refund Due';return'Rs.'+Math.round(n).toLocaleString('en-IN')}
+function fmtD(v){if(!v)return'N/A';try{var d=new Date(v.replace(/-/g,' '));if(!isNaN(d))return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch(e){}try{return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return v}}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function pN(s){if(!s)return 0;var n=parseInt(String(s).replace(/,/g,'').replace(/[^\d]/g,''),10);return isNaN(n)?0:n}
+// Round to nearest multiple of 10. Applied only at the final step — to the Net Tax
+// Payable/(Refundable) figure, after Total Tax Liability minus Taxes Paid — matching how
+// the Department itself rounds off the final refund/demand (Sec 288B), without disturbing
+// the precise rupee-level tax/cess maths that feed into it.
+function r10(n){return Math.round(n/10)*10}
+// Parses the signed "Tax Payable/(Refundable)" string captured from the PDF (e.g. "(-)  8,710"
+// for a refund, "+  1,200" for tax payable) into a signed number using the same sign
+// convention as netPayable (negative = refund due, positive = payable, 0 = nil).
+function parseAckSigned(s){if(!s)return null;var neg=/\(-\)/.test(s);var num=pN(s);return neg?-num:num}
+function switchTab(m){g('panelPdf').style.display=m==='pdf'?'block':'none';g('panelManual').style.display=m==='manual'?'block':'none';g('tabPdf').className='tab'+(m==='pdf'?' on':'');g('tabManual').className='tab'+(m==='manual'?' on':'');g('rw').style.display='none';syncPill()}
+function toggleDed(mode){
+  if(mode==='pdf'){var r=gv('vregime')||'new';var ay=currentAY('pdf');g('pdf-ded').className='dedp'+(r==='old'?' show':'');g('pdf-rnote').innerHTML=regimeNoteHTML(ay,r);refreshRegimeOptions('v');syncPill();pdfCalc()}
+  else{var r=gv('m_regime')||'new';var ay=currentAY('manual');g('m-ded').className='dedp'+(r==='old'?' show':'');g('m-rnote').innerHTML=regimeNoteHTML(ay,r);refreshRegimeOptions('m');syncPill();mCalc()}
+}
+function setNat(v,grp,hid){g(grp).querySelectorAll('.nat').forEach(b=>b.classList.toggle('on',b.dataset.v===v));g(hid).value=v}
+function dzOv(e){e.preventDefault();g('dz').classList.add('over')}
+function dzLv(){g('dz').classList.remove('over')}
+function dzDp(e){e.preventDefault();g('dz').classList.remove('over');var f=e.dataTransfer.files[0];if(f&&f.type==='application/pdf')onFile(f);else toast('Please drop a PDF file')}
+function onFile(f){if(!f)return;g('fn').textContent=f.name;g('fsz').textContent=(f.size/1024).toFixed(1)+' KB';g('fpill').classList.add('show');g('btnRead').disabled=false;g('pdfCard').style.display='none';g('pbox').classList.remove('show');g('rawpre').style.display='none';setStat('loading','PDF loaded — click "Read PDF & Auto-Fill Fields" to extract.');var r=new FileReader();r.onload=e=>{pdfData=e.target.result};r.readAsArrayBuffer(f)}
+function clearFile(){pdfData=null;g('fpill').classList.remove('show');g('btnRead').disabled=true;g('stat').style.display='none';g('rawpre').style.display='none';g('pdfCard').style.display='none';g('pbox').classList.remove('show');g('pdfIn').value=''}
+
+// ── READ PDF — mirrors Python pdfplumber line-index logic exactly ──
+function readPDF(){
+  if(!pdfData)return;
+  g('btnRead').disabled=true;setStat('loading','Reading PDF text layer…');
+  pdfjsLib.getDocument({data:pdfData}).promise.then(pdf=>{
+    var ps=[];for(var i=1;i<=pdf.numPages;i++)ps.push(pdf.getPage(i).then(p=>p.getTextContent().then(tc=>tc.items.map(x=>x.str).join(' '))));
+    return Promise.all(ps);
+  }).then(pages=>{
+    var full=pages.join('\n');
+    g('rawpre').textContent='Extracted text (first 500 chars):\n'+full.substring(0,500)+'…';g('rawpre').style.display='block';
+    tags={};var c=parseLines(full);fillFields(c);showTags();
+    g('pdfCard').style.display='block';
+    setStat('ok','PDF read! '+Object.keys(tags).length+' fields auto-filled. Verify then Preview or Download.');
+    g('btnRead').disabled=false;
+    setTimeout(()=>{g('pdfCard').scrollIntoView({behavior:'smooth',block:'start'})},450);
+  }).catch(err=>{setStat('error','Could not read PDF: '+err.message+'. Use Manual Entry instead.');g('btnRead').disabled=false});
+}
+
+// ── CORE PARSER — exact mirror of Python split()[n] line-index logic ──
+function parseLines(full){
+  // pdfplumber joins items with spaces per line, then \n between pages
+  // PDF.js joins per page with spaces, pages joined with \n
+  // We need to split by newline to get same lines[] as Python
+  var lines=full.split(/\n/);
+  var c={ack:'',filling_date:'',ay:'',pan:'',name:'',addr:'',status:'',form:'',filling_sec:'',income:'0',tax:'0',interest:0,totalpayable:'0',taxpaid:'0',taxdue_refund:'0',taxdue_sign:'(+)',verify:''};
+  function sp(s){return(s||'').trim().split(/\s+/)}
+  function getTextBetween(arr, startText, endText,index = 1, separator = " ") {
+    const startIndex = arr.indexOf(startText);
+    if (startIndex === -1) return "";
+
+    const endIndex = arr.indexOf(endText, startIndex + index);
+    if (endIndex === -1 || endIndex <= startIndex) return "";
+
+    return arr.slice(startIndex + index, endIndex).join(separator);
+}
+
+  // line[0]: "Acknowledgement Number:159244490040626 Date of filing : 04-Jun-2026"
+  // Python: lines[0].split()[1][7:]  and  lines[0].split()[-1]
+  var l0=sp(lines[0]);//document.write(l0[l0.indexOf('(6-7)') + 2],Number(getTextBetween(l0,"(6-7)","Accreted",3).replace(/,/g, "")))
+  if(l0.length>1){
+    // Acknowledgement Number & Date of Filing — regex-based extraction, robust to
+    // colon/space variations in the PDF text layer (fixed-position split[] broke silently
+    // whenever a PDF had e.g. "Number : 123..." instead of "Number:123...").
+    // Falls back to scanning the full extracted text if line 0 itself doesn't match.
+    var mAck=(lines[0]||'').match(/Number\s*:?\s*(\d{6,})/i)||full.match(/Acknowledgement\s+Number\s*:?\s*(\d{6,})/i);
+    c.ack=mAck?mAck[1]:'';
+    var mDate=(lines[0]||'').match(/Date\s+of\s+filing\s*:?\s*(\d{1,2}[\/-][A-Za-z]{3,9}[\/-]\d{2,4})/i)||full.match(/Date\s+of\s+filing\s*:?\s*(\d{1,2}[\/-][A-Za-z]{3,9}[\/-]\d{2,4})/i);
+    c.filling_date=mDate?mDate[1]:'';
+
+  // line[4]: "2026-27"  → Python: lines[4].split()[0]
+    c.ay=l0[l0.indexOf('Assessment')+2];
+    if(!/^\d{4}-\d{2,4}$/.test(c.ay||'')){var mAY=full.match(/Assessment\s+Year\s*:?\s*(\d{4}-\d{2,4})/i);if(mAY)c.ay=mAY[1]}
+
+  // line[6]: "PAN BFWPB0176A"  → Python: lines[6].split()[1]
+    c.pan=l0[l0.indexOf('PAN')+1];
+
+  // line[7]: "Name BHAT KULSOOMA"  → Python: " ".join(lines[7].split()[1:])
+    c.name=getTextBetween(l0,"Name","Address");
+
+  // line[8]: "Address 01, anantnag..."  → Python: " ".join(lines[8].split()[1:])
+    c.addr=getTextBetween(l0,"Address","Status");
+
+  // line[9]: "Status Individual Form Number ITR-2"
+  // Python: lines[9].split()[1]  and  lines[9].split()[-1]
+  c.status=l0[l0.indexOf('Status')+1];c.form=l0[l0.indexOf('u/s')-2];
+
+  // line[10]: "Filed u/s 139(1)-On or before due date e-Filing Acknowledgement Number 159244490040626"
+  // Python: " ".join(lines[10].split()[1:-4])
+    c.filling_sec=getTextBetween(l0,"u/s","e-Filing");
+
+  // line[12]: "Total Income 1A 87,130"  → Python: lines[12].split()[-1]
+    c.income=Number(getTextBetween(l0,"1A","Book").replace(/,/g, ""));
+
+  // line[15]: "Net tax payable 4 0"  → Python: lines[15].split()[-1]
+    c.tax=Number(getTextBetween(l0,"payable","Interest",2).replace(/,/g, ""));
+
+  // line[16]: "Interest and Fee Payable 5 0"  → Python: int(lines[16].split()[-1])
+    c.interest=Number(getTextBetween(l0,"Payable","Total",2).replace(/,/g, ""));
+
+  // line[17]: "Total tax, interest and Fee payable 6 0"  → Python: lines[17].split()[-1]
+    c.totalpayable=c.tax+c.interest
+
+  // line[18]: "Taxes Paid 7 8,707"  → Python: lines[18].split()[-1]
+    c.taxpaid=Number(getTextBetween(l0,"Paid","(+)",2).replace(/,/g, ""));
+
+  // line[19]: "(+) Tax Payable /(-) Refundable (6-7) 8 (-) 8,710"
+  // Python: lines[19].split()[-1]  and sign = lines[19].split()[-2]
+    c.taxdue_refund=Number(getTextBetween(l0,"(6-7)","Accreted",3).replace(/,/g, ""));
+    c.taxdue_sign=l0[l0.indexOf('(6-7)') + 2];
+}
+  // Verification: scan lines 26-32 for mode
+  for(var i=26;i<Math.min(lines.length,33);i++){
+    var ln=(lines[i]||'').toLowerCase();
+    if(ln.indexOf('aadhaar')!==-1){c.verify='Aadhaar OTP';break}
+    if(ln.indexOf('net banking')!==-1){c.verify='Net Banking EVC';break}
+    if(ln.indexOf('bank account')!==-1){c.verify='Bank Account EVC';break}
+    if(ln.indexOf('demat')!==-1){c.verify='Demat Account EVC';break}
+    if(ln.indexOf('dsc')!==-1){c.verify='DSC';break}
+  }
+  if(!c.verify)c.verify='Aadhaar OTP';
+  return c;
+}
+
+function fillFields(c){
+  function sf(id,val,lbl){var el=g(id);if(!el||!val)return;el.value=val;var w=g('f-'+id)||g('ib-'+id);if(w)w.classList.add('af');if(lbl)tags[lbl]=String(val).substring(0,24)}
+  function so(id,val,lbl){var sel=g(id);if(!sel)return;var v=(val||'').toLowerCase();for(var i=0;i<sel.options.length;i++){if(sel.options[i].value.toLowerCase().indexOf(v)!==-1||sel.options[i].text.toLowerCase().indexOf(v)!==-1){sel.selectedIndex=i;if(lbl)tags[lbl]=sel.options[i].text.substring(0,24);return}}}
+  sf('vname',c.name,'Name');sf('vpan',c.pan,'PAN');sf('vaddr',c.addr,'Address');sf('vakno',c.ack,'Ack No.');
+  so('vstatus',c.status,'Status');so('vverify',c.verify,'Verify');
+  // Assessment Year — parsed from the PDF itself (line[4] "Assessment Year : 2026-27" etc.),
+  // not assumed. Whatever year the acknowledgement actually says drives every slab/rebate
+  // calculation downstream; if it's a year we don't have on file yet, it's still kept
+  // (see ensureAYOption) and computed via the nearest-year fallback in ayCfg().
+  if(c.ay&&/^\d{4}-\d{2,4}$/.test(c.ay)){ensureAYOption('vay',c.ay);tags['AY']=c.ay}
+  // ITR form
+  var fs=g('vform');var fv=(c.form||'').toUpperCase().replace(/\s/g,'');
+  for(var i=0;i<fs.options.length;i++){if(fs.options[i].value.replace(/\s/g,'').toUpperCase().indexOf(fv)!==-1){fs.selectedIndex=i;tags['Form']=c.form;break}}
+  // Date — if extraction failed, clear the field rather than silently leaving
+  // today's pre-filled default in place (which masked parsing failures before)
+  if(c.filling_date){
+    var d=null;try{d=new Date(c.filling_date.replace(/-/g,' '))}catch(e){d=null}
+    if(d&&!isNaN(d)){g('vdate').value=d.toISOString().split('T')[0];tags['Date']=c.filling_date}
+    else{g('vdate').value='';}
+  } else {
+    g('vdate').value='';
+  }
+  // Filed u/s
+  if(c.filling_sec){var fs2=g('vfiled');var matched=false;for(var i=0;i<fs2.options.length;i++){if(fs2.options[i].value.toLowerCase().indexOf(c.filling_sec.substring(0,6).toLowerCase())!==-1){fs2.selectedIndex=i;matched=true;break}}if(!matched){fs2.options[0].text='Filed u/s '+c.filling_sec;fs2.selectedIndex=0}tags['Filed u/s']=c.filling_sec.substring(0,20)}
+  // Numeric fields
+  sf('vinc',c.income,'Total Income');sf('vloss','0',null);sf('vtax',c.tax,'Net Tax');
+  sf('vint',String(c.interest),'Interest/Fee');sf('vtotal',c.totalpayable,'Total Payable');sf('vtpaid',c.taxpaid,'Taxes Paid');
+  var refD=(c.taxdue_sign==='(-)'?'(-)  ':'+  ')+c.taxdue_refund;
+  sf('vrefund',refD,'Refund/Payable');
+  toggleDed('pdf');
+}
+
+function showTags(){var pb=g('pbox'),gr=g('pgrid');var ks=Object.keys(tags);if(!ks.length){pb.classList.remove('show');return}gr.innerHTML=ks.map(k=>'<div class="ptag">'+k+': <span>'+tags[k]+'</span></div>').join('');pb.classList.add('show')}
+
+function pdfCalc(){var inc=pN(gv('vinc'));var tp=pN(gv('vtpaid'));var inf=pN(gv('vint'));var r=gv('vregime')||'new';var ay=currentAY('pdf');var ded=0;if(r==='old')ded=Math.min(gn('v80c'),150000)+Math.min(gn('v80d'),100000)+Math.min(gn('vnps'),50000)+gn('vdedoth');var tx=Math.max(0,inc-ded);var c=calcAll(tx,inf,tp,r,ay);var qc=g('pdf-qcalc');if(inc>0){qc.style.display='block';var extra='';var ackS=gv('vrefund');var an=parseAckSigned(ackS);if(an!==null&&ackS){var diff=c.netPayable-an;extra=diff===0?'  <span style="color:#2d6a4f">✓ matches Ack. Field 8</span>':'  <span style="color:#7f1d1d">⚠ Ack. Field 8: '+sInr(an)+' (Δ Rs.'+Math.abs(diff).toLocaleString('en-IN')+')</span>'}qc.innerHTML='Taxable: <strong>'+inr(tx)+'</strong>  Tax Liability: <strong>'+inr(c.totalTax)+'</strong>  Net: <strong>'+sInr(c.netPayable)+'</strong>'+extra}else qc.style.display='none'}
+function mCalc(){var sal=gn('m_sal');var hp=parseFloat(g('m_hp').value)||0;var biz=gn('m_biz');var cg=gn('m_cg');var oth=gn('m_oth');var loss=gn('m_loss');var r=gv('m_regime')||'new';var ay=currentAY('manual');var c80c=0,c80d=0,nps=0,doth=0;if(r==='old'){c80c=Math.min(gn('m_80c'),150000);c80d=Math.min(gn('m_80d'),100000);nps=Math.min(gn('m_nps'),50000);doth=gn('m_doth')}var gross=sal+hp+biz+cg+oth-loss;var ded=c80c+c80d+nps+doth;var calc=Math.max(0,gross-ded);var ovr=gn('m_ovr');var tot=ovr>0?ovr:calc;g('m_grossd').value='Rs.'+Math.round(gross).toLocaleString('en-IN');g('m_totald').value='Rs.'+Math.round(tot).toLocaleString('en-IN');var tp=gn('m_tpaid');var inf=gn('m_int');var cm=calcAll(tot,inf,tp,r,ay);var nd=g('m_netd'),nb=g('m_netbox');if(cm.netPayable<0){nd.value='REFUND: '+inr(Math.abs(cm.netPayable));nd.style.color='var(--bl)';nb.style.borderColor='var(--bl)';nb.style.background='var(--bll)'}else if(cm.netPayable>0){nd.value='PAYABLE: '+inr(cm.netPayable);nd.style.color='var(--rd)';nb.style.borderColor='var(--rd)';nb.style.background='var(--rdl)'}else{nd.value='NIL';nd.style.color='var(--gn2)';nb.style.borderColor='var(--gn3)';nb.style.background='#f0fdf4'}}
+
+function calcAll(inc,inf,tp,regime,ay){regime=regime||'new';ay=ay||AY_LIST[0];var r=calcRegime(inc,ay,regime);var cess=Math.round(r.tar*.04);var total=r.tar+cess+(inf||0);var net=r10(total-(tp||0));return{basicTax:r.basicTax,rows:r.rows,rebate:r.rebate,rebLbl:r.rebLbl,tar:r.tar,cess,totalTax:total,netPayable:net}}
+
+function getValsPdf(){var regime=gv('vregime')||'new';var rawInc=pN(gv('vinc'));var ded=0;if(regime==='old')ded=Math.min(gn('v80c'),150000)+Math.min(gn('v80d'),100000)+Math.min(gn('vnps'),50000)+gn('vdedoth');return{name:gv('vname')||'N/A',pan:gv('vpan')||'N/A',addr:gv('vaddr')||'N/A',fatherName:'',status:gv('vstatus'),form:gv('vform'),date:g('vdate').value,ackno:gv('vakno')||'N/A',filed:g('vfiled').options[g('vfiled').selectedIndex].text,verify:gv('vverify'),ay:currentAY('pdf'),regime,rawIncome:rawInc,deductions:ded,totalIncome:Math.max(0,rawInc-ded),bizLoss:pN(gv('vloss')),taxFromAck:pN(gv('vtax')),intFee:pN(gv('vint')),totalPayableAck:pN(gv('vtotal')),taxesPaid:pN(gv('vtpaid')),refundAck:gv('vrefund'),natureLabel:NL[g('pdfNat').value]||'Total Income',mode:'pdf',c80c:regime==='old'?Math.min(gn('v80c'),150000):0,c80d:regime==='old'?Math.min(gn('v80d'),100000):0,nps:regime==='old'?Math.min(gn('vnps'),50000):0,dedOth:regime==='old'?gn('vdedoth'):0}}
+function getValsManual(){var sal=gn('m_sal');var hp=parseFloat(g('m_hp').value)||0;var biz=gn('m_biz');var cg=gn('m_cg');var oth=gn('m_oth');var loss=gn('m_loss');var regime=gv('m_regime')||'new';var c80c=0,c80d=0,nps=0,doth=0;if(regime==='old'){c80c=Math.min(gn('m_80c'),150000);c80d=Math.min(gn('m_80d'),100000);nps=Math.min(gn('m_nps'),50000);doth=gn('m_doth')}var gross=sal+hp+biz+cg+oth-loss;var ded=c80c+c80d+nps+doth;var calc=Math.max(0,gross-ded);var ovr=gn('m_ovr');var total=ovr>0?ovr:calc;return{name:gv('m_name')||'N/A',pan:gv('m_pan')||'N/A',fatherName:gv('m_fname'),addr:gv('m_addr')||'N/A',status:gv('m_status'),form:gv('m_form'),date:g('m_date').value,ackno:gv('m_ackno')||'N/A',filed:g('m_filed').options[g('m_filed').selectedIndex].text,verify:gv('m_verify'),ay:currentAY('manual'),regime,rawIncome:gross,deductions:ded,totalIncome:total,salary:sal,hp,biz,cg,otherInc:oth,bizloss:loss,gross,totalDed:ded,c80c,c80d,nps,dedOth:doth,taxesPaid:gn('m_tpaid'),intFee:gn('m_int'),natureLabel:NL[g('manualNat').value]||'Total Income',mode:'manual'}}
+
+function buildHTML(v,c){
+  var ds=fmtD(v.date);var rl=v.regime==='old'?'Old Tax Regime':'New Tax Regime';var nc=c.netPayable<0?' ref':c.netPayable>0?' pay':'';
+  var sh='';c.rows.forEach(r=>{sh+='<tr class="ind"><td>'+esc(r.l)+'</td><td>'+(r.tax===0?'NIL':inr(r.tax))+'</td></tr>'});if(!sh)sh='<tr class="ind"><td>Income within nil slab</td><td>NIL</td></tr>';
+  var h='<div class="rhead"><h2>Computation of Income — AY '+(v.ay||AY_LIST[0])+'</h2><div class="rmeta"><span>'+esc(v.form)+'</span><span>'+rl+'</span><span>Filed: '+esc(ds)+'</span><span>Ack: '+esc(v.ackno)+'</span></div></div>';
+  h+='<div class="astrip">';['Name:'+v.name,'PAN:'+v.pan,'Status:'+v.status,'Form:'+v.form].forEach(x=>{var p=x.split(':');h+='<div class="ac"><div class="al">'+p[0]+'</div><div class="av">'+esc(p.slice(1).join(':'))+'</div></div>'});h+='</div>';
+  h+='<div class="mbar">';[[' Total Income',inr(v.rawIncome||v.totalIncome),''],[' Tax on Inc',inr(c.basicTax),c.basicTax?'pos':'nil'],[' Rebate 87A',inr(c.rebate),'nil'],[' Cess 4%',inr(c.cess),''],[' Total Tax',inr(c.totalTax),c.totalTax?'pos':'nil'],[' Net',sInr(c.netPayable),c.netPayable<0?'ref':c.netPayable>0?'pos':'nil']].forEach(([l,v2,cl])=>{h+='<div class="mc"><div class="mlbl">'+l+'</div><div class="mval '+cl+'">'+v2+'</div></div>'});h+='</div>';
+  h+='<table class="ct"><tbody>';
+  h+='<tr class="sh"><td colspan="2">A. ASSESSEE DETAILS &amp; FILING PARTICULARS</td></tr>';
+  h+='<tr><td>Name of Assessee</td><td style="font-weight:700">'+esc(v.name)+'</td></tr>';
+  if(v.fatherName)h+='<tr><td>Father\'s / Guardian\'s Name</td><td>'+esc(v.fatherName)+'</td></tr>';
+  h+='<tr><td>PAN</td><td style="font-family:monospace;letter-spacing:.06em">'+esc(v.pan)+'</td></tr>';
+  h+='<tr><td>Address</td><td>'+esc(v.addr)+'</td></tr>';
+  h+='<tr><td>Status</td><td>'+esc(v.status)+'</td></tr><tr><td>ITR Form</td><td>'+esc(v.form)+'</td></tr>';
+  h+='<tr><td>Assessment Year</td><td>'+(v.ay||AY_LIST[0])+'</td></tr><tr><td>Date of Filing</td><td>'+esc(ds)+'</td></tr>';
+  h+='<tr><td>Filed under Section</td><td>'+esc(v.filed)+'</td></tr>';
+  h+='<tr><td>Acknowledgement Number</td><td style="font-family:monospace">'+esc(v.ackno)+'</td></tr>';
+  h+='<tr><td>Verification Mode</td><td>'+esc(v.verify)+'</td></tr>';
+  h+='<tr><td>Tax Regime</td><td><strong>'+esc(rl)+'</strong></td></tr>';
+  h+='<tr class="sh"><td colspan="2">B. INCOME DETAILS</td></tr>';
+  h+='<tr><td>Nature of Income</td><td>'+esc(v.natureLabel)+'</td></tr>';
+  if(v.mode==='manual'){if(v.salary>0)h+='<tr class="ind"><td>Salary / Pension</td><td>'+inr(v.salary)+'</td></tr>';if(v.hp!==0)h+='<tr class="ind"><td>House Property</td><td>'+(v.hp<0?'('+inr(Math.abs(v.hp))+')':inr(v.hp))+'</td></tr>';if(v.biz>0)h+='<tr class="ind"><td>Business / Profession</td><td>'+inr(v.biz)+'</td></tr>';if(v.cg>0)h+='<tr class="ind"><td>Capital Gains</td><td>'+inr(v.cg)+'</td></tr>';if(v.otherInc>0)h+='<tr class="ind"><td>Other Sources</td><td>'+inr(v.otherInc)+'</td></tr>';if(v.bizloss>0)h+='<tr class="ind"><td>Less: Current Year Business Loss</td><td>('+inr(v.bizloss)+')</td></tr>';h+='<tr class="sub"><td>Gross Total Income</td><td>'+inr(v.gross)+'</td></tr>';if(v.totalDed>0){h+='<tr class="sh"><td colspan="2">B2. DEDUCTIONS — CHAPTER VI-A</td></tr>';if(v.c80c>0)h+='<tr class="ind"><td>80C — LIC/PPF/ELSS (Max Rs.1,50,000)</td><td>'+inr(v.c80c)+'</td></tr>';if(v.c80d>0)h+='<tr class="ind"><td>80D — Medical Insurance</td><td>'+inr(v.c80d)+'</td></tr>';if(v.nps>0)h+='<tr class="ind"><td>80CCD(1B) — NPS (Max Rs.50,000)</td><td>'+inr(v.nps)+'</td></tr>';if(v.dedOth>0)h+='<tr class="ind"><td>Other Deductions</td><td>'+inr(v.dedOth)+'</td></tr>';h+='<tr class="sub"><td>Total Deductions</td><td>('+inr(v.totalDed)+')</td></tr>'}}
+  else{if(v.bizLoss>0)h+='<tr class="ind"><td>Current Year Business Loss (Field 1)</td><td>('+inr(v.bizLoss)+')</td></tr>';if(v.deductions>0){if(v.c80c>0)h+='<tr class="ind"><td>80C Deductions</td><td>('+inr(v.c80c)+')</td></tr>';if(v.c80d>0)h+='<tr class="ind"><td>80D Medical Insurance</td><td>('+inr(v.c80d)+')</td></tr>';if(v.nps>0)h+='<tr class="ind"><td>80CCD(1B) NPS</td><td>('+inr(v.nps)+')</td></tr>';if(v.dedOth>0)h+='<tr class="ind"><td>Other Deductions</td><td>('+inr(v.dedOth)+')</td></tr>';h+='<tr class="sub"><td>Total Deductions</td><td>('+inr(v.deductions)+')</td></tr>'}}
+  h+='<tr class="sub"><td>Total Income (Field 1A)</td><td>'+inr(v.rawIncome||v.totalIncome)+'</td></tr>';
+  if(v.deductions>0)h+='<tr class="sub" style="color:var(--gn)"><td>Taxable Income (after deductions)</td><td>'+inr(v.totalIncome)+'</td></tr>';
+  h+='<tr class="sh"><td colspan="2">C. TAX COMPUTATION ('+rl.toUpperCase()+' — AY '+(v.ay||AY_LIST[0])+')</td></tr>';
+  h+='<tr><td>Taxable Income taken for computation</td><td>'+inr(v.totalIncome)+'</td></tr>'+sh;
+  h+='<tr class="sub"><td>Tax on Total Income (before Rebate u/s 87A)</td><td>'+inr(c.basicTax)+'</td></tr>';
+  h+=(c.rebate>0?'<tr class="ind"><td>Less: '+esc(c.rebLbl)+'</td><td>('+inr(c.rebate)+')</td></tr>':'<tr class="ind"><td>Rebate u/s 87A — Not applicable</td><td>NIL</td></tr>');
+  h+='<tr class="sub"><td>Tax after Rebate u/s 87A</td><td>'+inr(c.tar)+'</td></tr>';
+  h+='<tr><td>Add: Health &amp; Education Cess @ 4%</td><td>'+inr(c.cess)+'</td></tr>';
+  if(v.intFee>0)h+='<tr><td>Add: Interest &amp; Fee Payable (u/s 234A/B/C)</td><td>'+inr(v.intFee)+'</td></tr>';
+  h+='<tr class="grand"><td>TOTAL TAX LIABILITY</td><td>'+inr(c.totalTax)+'</td></tr>';
+  h+='<tr class="sh"><td colspan="2">D. TAXES PAID &amp; NET TAX PAYABLE / (REFUNDABLE)</td></tr>';
+  if(v.mode==='pdf'){h+='<tr class="ind"><td>Net Tax Payable as per Acknowledgement (Field 4)</td><td>'+inr(v.taxFromAck)+'</td></tr>';h+='<tr class="ind"><td>Interest &amp; Fee Payable (Field 5)</td><td>'+inr(v.intFee)+'</td></tr>';h+='<tr class="ind"><td>Total Tax, Interest &amp; Fee (Field 6)</td><td>'+inr(v.totalPayableAck)+'</td></tr>'}
+  h+='<tr><td>Less: TDS / Advance Tax / Self-Assessment Tax Paid (Field 7)</td><td>'+(v.taxesPaid>0?'('+inr(v.taxesPaid)+')':'NIL')+'</td></tr>';
+  if(v.mode==='pdf'&&v.refundAck)h+='<tr class="ind"><td>Tax Payable / (Refundable) as per Acknowledgement (Field 8)</td><td>'+esc(v.refundAck)+'</td></tr>';
+  h+='<tr class="grand'+nc+'"><td>NET TAX PAYABLE / (REFUNDABLE) — COMPUTED</td><td>'+sInr(c.netPayable)+'</td></tr>';
+  if(v.mode==='pdf'&&v.refundAck){
+    var ackNum=parseAckSigned(v.refundAck);
+    if(ackNum!==null){
+      var diff=c.netPayable-ackNum;
+      if(diff===0)h+='<tr><td colspan="2" style="text-align:left;font-family:inherit;font-size:11px;color:var(--gn2);background:#f0fdf4">✓ Matches Acknowledgement Field 8 exactly (after rounding to nearest Rs.10 per Sec 288B).</td></tr>';
+      else h+='<tr><td colspan="2" style="text-align:left;font-family:inherit;font-size:11px;color:var(--rd);background:#fef2f2">⚠ Differs from Acknowledgement Field 8 ('+sInr(ackNum)+') by Rs.'+Math.abs(diff).toLocaleString('en-IN')+'. Double-check the income/deduction fields above.</td></tr>'
+    }
+  }
+  h+='</tbody></table>';
+  var sn=slabNoteText(v.ay,v.regime);
+  h+='<div class="dnote">'+sn+'<br>Rebate u/s 87A as applicable. Cess @ 4% on tax after rebate. For reference purposes only.</div>';
+  return h;
+}
+
+function previewPdf(){var v=getValsPdf();var c=calcAll(v.totalIncome,v.intFee,v.taxesPaid,v.regime,v.ay);g('rdoc').innerHTML=buildHTML(v,c);g('dlrow').innerHTML='<button class="btn btn-gn" onclick="previewPdf()">🔄 Refresh</button><button class="btn btn-bl" onclick="dlDocxPdf()">⬇ Download Word (.docx)</button>';g('rw').style.display='block';g('rw').scrollIntoView({behavior:'smooth',block:'start'})}
+function previewManual(){var v=getValsManual();var c=calcAll(v.totalIncome,v.intFee,v.taxesPaid,v.regime,v.ay);g('rdoc').innerHTML=buildHTML(v,c);g('dlrow').innerHTML='<button class="btn btn-gn" onclick="previewManual()">🔄 Refresh</button><button class="btn btn-bl" onclick="dlDocxManual()">⬇ Download Word (.docx)</button>';g('rw').style.display='block';g('rw').scrollIntoView({behavior:'smooth',block:'start'})}
+
+function makeDocx(v,c){
+  var ds=fmtD(v.date);var rl=v.regime==='old'?'Old Tax Regime':'New Tax Regime';
+  function tc(text,opts){opts=opts||{};var w=opts.w||7150,bold=opts.bold||false,fill=opts.fill||null,sz=opts.sz||22,col=opts.col||'000000',align=opts.align||'left';var shade=fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+fill+'"/>':'';var jc=align==='right'?'<w:jc w:val="right"/>':'';return'<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/>'+shade+'<w:tcMar><w:top w:w="90" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/><w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:pPr>'+jc+'</w:pPr><w:r><w:rPr>'+(bold?'<w:b/>':'')+'<w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/><w:color w:val="'+col+'"/></w:rPr><w:t xml:space="preserve">'+esc(text)+'</w:t></w:r></w:p></w:tc>'}
+  function dr(l,v2,o){o=o||{};return'<w:tr>'+tc(l,{w:7150,...o})+tc(v2,{w:3650,...o,align:'right'})+'</w:tr>'}
+  function sr(t){return'<w:tr><w:tc><w:tcPr><w:tcW w:w="10800" w:type="dxa"/><w:gridSpan w:val="2"/><w:shd w:val="clear" w:color="auto" w:fill="1B4332"/><w:tcMar><w:top w:w="90" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/><w:left w:w="180" w:type="dxa"/><w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="19"/><w:szCs w:val="19"/><w:color w:val="D8F3DC"/></w:rPr><w:t>'+esc(t)+'</w:t></w:r></w:p></w:tc></w:tr>'}
+  function sp(){return'<w:tr><w:trPr><w:trHeight w:val="60"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="10800" w:type="dxa"/><w:gridSpan w:val="2"/><w:tcBorders><w:top w:val="none" w:sz="0"/><w:bottom w:val="none" w:sz="0"/><w:left w:val="none" w:sz="0"/><w:right w:val="none" w:sz="0"/></w:tcBorders></w:tcPr><w:p/></w:tc></w:tr>'}
+  var rows='';
+  rows+='<w:tr><w:tc><w:tcPr><w:tcW w:w="10800" w:type="dxa"/><w:gridSpan w:val="2"/><w:shd w:val="clear" w:color="auto" w:fill="1B4332"/><w:tcMar><w:top w:w="260" w:type="dxa"/><w:bottom w:w="260" w:type="dxa"/><w:left w:w="240" w:type="dxa"/><w:right w:w="240" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="40"/><w:szCs w:val="40"/><w:color w:val="FFFFFF"/></w:rPr><w:t>COMPUTATION OF INCOME</w:t></w:r></w:p><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/><w:color w:val="B7E4C7"/></w:rPr><w:t>Assessment Year '+(v.ay||AY_LIST[0])+'</w:t></w:r></w:p><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="20"/><w:szCs w:val="20"/><w:color w:val="95D5B2"/></w:rPr><w:t>'+esc(rl)+' | Income Tax Act, 1961</w:t></w:r></w:p></w:tc></w:tr>';
+  rows+=sp();rows+=sr('A. ASSESSEE DETAILS & FILING PARTICULARS');
+  rows+=dr('Name of Assessee',v.name,{bold:true,fill:'EBF3FB'});
+  if(v.fatherName)rows+=dr("Father's / Guardian's Name",v.fatherName,{fill:'EBF3FB'});
+  rows+=dr('PAN',v.pan,{fill:'EBF3FB'});rows+=dr('Address',v.addr);rows+=dr('Status',v.status);rows+=dr('ITR Form',v.form);rows+=dr('Assessment Year',v.ay||AY_LIST[0]);rows+=dr('Date of Filing',ds);rows+=dr('Filed under Section',v.filed);rows+=dr('Acknowledgement Number',v.ackno);rows+=dr('Verification Mode',v.verify);rows+=dr('Tax Regime',rl,{bold:true});
+  rows+=sp();rows+=sr('B. INCOME DETAILS');rows+=dr('Nature of Income',v.natureLabel);
+  if(v.mode==='manual'){if(v.salary>0)rows+=dr('  Salary / Pension',inr(v.salary));if(v.hp!==0)rows+=dr('  House Property',v.hp<0?'('+inr(Math.abs(v.hp))+')':inr(v.hp));if(v.biz>0)rows+=dr('  Business / Profession',inr(v.biz));if(v.cg>0)rows+=dr('  Capital Gains',inr(v.cg));if(v.otherInc>0)rows+=dr('  Other Sources',inr(v.otherInc));if(v.bizloss>0)rows+=dr('  Less: Current Year Business Loss','('+inr(v.bizloss)+')');rows+=dr('Gross Total Income',inr(v.gross),{bold:true,fill:'FFF9C4'});if(v.totalDed>0){rows+=sp();rows+=sr('B2. DEDUCTIONS — CHAPTER VI-A');if(v.c80c>0)rows+=dr('  80C — LIC/PPF/ELSS (Max Rs.1,50,000)',inr(v.c80c));if(v.c80d>0)rows+=dr('  80D — Medical Insurance (Max Rs.1,00,000)',inr(v.c80d));if(v.nps>0)rows+=dr('  80CCD(1B) — NPS (Max Rs.50,000)',inr(v.nps));if(v.dedOth>0)rows+=dr('  Other Deductions',inr(v.dedOth));rows+=dr('Total Deductions','('+inr(v.totalDed)+')',{bold:true,fill:'FFF0F0'})}}
+  else{if(v.bizLoss>0)rows+=dr('Current Year Business Loss (Field 1)','('+inr(v.bizLoss)+')');if(v.deductions>0){if(v.c80c>0)rows+=dr('  80C',inr(v.c80c));if(v.c80d>0)rows+=dr('  80D',inr(v.c80d));if(v.nps>0)rows+=dr('  80CCD(1B)',inr(v.nps));if(v.dedOth>0)rows+=dr('  Other',inr(v.dedOth));rows+=dr('Total Deductions','('+inr(v.deductions)+')',{bold:true})}}
+  rows+=dr('Total Income (Field 1A)',inr(v.rawIncome||v.totalIncome),{bold:true,fill:'FFF9C4'});
+  if(v.deductions>0)rows+=dr('Taxable Income (after deductions)',inr(v.totalIncome),{bold:true,fill:'D8F3DC'});
+  rows+=sp();rows+=sr('C. TAX COMPUTATION ('+rl.toUpperCase()+' — AY '+(v.ay||AY_LIST[0])+')');
+  rows+=dr('Taxable Income',inr(v.totalIncome));
+  c.rows.forEach(r=>rows+=dr('    '+r.l,r.tax===0?'NIL':inr(r.tax)));
+  rows+=dr('Tax on Total Income (before Rebate u/s 87A)',inr(c.basicTax),{bold:true,fill:'FFF9C4'});
+  if(c.rebate>0)rows+=dr('Less: '+c.rebLbl,'('+inr(c.rebate)+')',{fill:'D8F3DC',col:'1B4332'});else rows+=dr('Rebate u/s 87A — Not applicable','NIL');
+  rows+=dr('Tax after Rebate u/s 87A',inr(c.tar),{bold:true});rows+=dr('Add: Health & Education Cess @ 4%',inr(c.cess));
+  if(v.intFee>0)rows+=dr('Add: Interest & Fee Payable (u/s 234A/B/C)',inr(v.intFee));
+  rows+=dr('TOTAL TAX LIABILITY',inr(c.totalTax),{bold:true,fill:'1B4332',sz:26,col:'FFFFFF'});
+  rows+=sp();rows+=sr('D. TAXES PAID & NET TAX PAYABLE / (REFUNDABLE)');
+  if(v.mode==='pdf'){rows+=dr('Net Tax Payable as per Acknowledgement (Field 4)',inr(v.taxFromAck));rows+=dr('Interest & Fee Payable (Field 5)',inr(v.intFee));rows+=dr('Total Tax, Interest & Fee (Field 6)',inr(v.totalPayableAck))}
+  rows+=dr('Less: Taxes Paid — TDS / Advance Tax / SAT (Field 7)',v.taxesPaid>0?'('+inr(v.taxesPaid)+')':'NIL');
+  if(v.mode==='pdf'&&v.refundAck)rows+=dr('Tax Payable / (Refundable) as per Acknowledgement (Field 8)',v.refundAck);
+  var nf=c.netPayable<0?'1A3A5F':c.netPayable>0?'7F1D1D':'1B4332';
+  rows+=dr('NET TAX PAYABLE / (REFUNDABLE) — COMPUTED',sInr(c.netPayable),{bold:true,fill:nf,sz:26,col:'FFFFFF'});
+  if(v.mode==='pdf'&&v.refundAck){
+    var ackNum=parseAckSigned(v.refundAck);
+    if(ackNum!==null){
+      var diff=c.netPayable-ackNum;
+      if(diff===0)rows+=dr('Verification vs Acknowledgement','Matches Field 8 exactly',{fill:'EBF9F1',col:'1B4332'});
+      else rows+=dr('Verification vs Acknowledgement','Differs from Field 8 ('+sInr(ackNum)+') by Rs.'+Math.abs(diff).toLocaleString('en-IN'),{fill:'FEF2F2',col:'7F1D1D'})
+    }
+  }
+  rows+=sp();
+  var sn=slabNoteText(v.ay,v.regime);
+  rows+='<w:tr><w:tc><w:tcPr><w:tcW w:w="10800" w:type="dxa"/><w:gridSpan w:val="2"/><w:shd w:val="clear" w:color="auto" w:fill="F8F8F4"/><w:tcMar><w:top w:w="130" w:type="dxa"/><w:bottom w:w="130" w:type="dxa"/><w:left w:w="180" w:type="dxa"/><w:right w:w="180" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="1B4332"/></w:rPr><w:t>Notes:</w:t></w:r></w:p><w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="555555"/></w:rPr><w:t>1. '+esc(sn)+'</w:t></w:r></w:p><w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="555555"/></w:rPr><w:t>2. Rebate u/s 87A per the Finance Act applicable to AY '+esc(v.ay)+'. Cess @ 4% on tax after rebate.</w:t></w:r></w:p><w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="555555"/></w:rPr><w:t>3. This document is for reference purposes only and does not constitute a legal document.</w:t></w:r></w:p></w:tc></w:tr>';
+  rows+=sp();
+  rows+='<w:tr><w:tc><w:tcPr><w:tcW w:w="5400" w:type="dxa"/><w:tcBorders><w:top w:val="none" w:sz="0"/><w:bottom w:val="none" w:sz="0"/><w:left w:val="none" w:sz="0"/><w:right w:val="none" w:sz="0"/></w:tcBorders></w:tcPr><w:p><w:pPr><w:spacing w:before="500"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="888888"/></w:rPr><w:t>________________________________</w:t></w:r></w:p><w:p><w:r><w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="999999"/></w:rPr><w:t>Signature of Assessee</w:t></w:r></w:p><w:p><w:r><w:rPr><w:b/><w:sz w:val="22"/></w:rPr><w:t>'+esc(v.name)+'</w:t></w:r></w:p><w:p><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="888888"/></w:rPr><w:t>PAN: '+esc(v.pan)+'</w:t></w:r></w:p></w:tc><w:tc><w:tcPr><w:tcW w:w="5400" w:type="dxa"/><w:tcBorders><w:top w:val="none" w:sz="0"/><w:bottom w:val="none" w:sz="0"/><w:left w:val="none" w:sz="0"/><w:right w:val="none" w:sz="0"/></w:tcBorders></w:tcPr><w:p><w:pPr><w:jc w:val="right"/><w:spacing w:before="500"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="888888"/></w:rPr><w:t>Place: Jammu &amp; Kashmir</w:t></w:r></w:p><w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="888888"/></w:rPr><w:t>Date: '+esc(ds)+'</w:t></w:r></w:p></w:tc></w:tr>';
+  return'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:tbl><w:tblPr><w:tblW w:w="10800" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:left w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:right w:val="single" w:sz="4" w:space="0" w:color="CCCCCC"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="E8E4DA"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="E8E4DA"/></w:tblBorders><w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:left w:w="140" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="140" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="7150"/><w:gridCol w:w="3650"/></w:tblGrid>'+rows+'</w:tbl><w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>'
+}
+
+function dlDoc(v){
+  var c=calcAll(v.totalIncome,v.intFee,v.taxesPaid,v.regime,v.ay);
+  var docXml=makeDocx(v,c);
+  var rXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  var sXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>';
+  var ctXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>';
+  var rrXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+  var zip=new JSZip();zip.file('[Content_Types].xml',ctXml);zip.file('_rels/.rels',rrXml);zip.file('word/document.xml',docXml);zip.file('word/styles.xml',sXml);zip.file('word/_rels/document.xml.rels',rXml);
+  zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}).then(blob=>{
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    var nm=(v.name||'Assessee').replace(/[^a-zA-Z0-9]/g,'_');
+    a.download='Computation_'+nm+'_AY'+(v.ay||AY_LIST[0]).replace('-','')+'_'+v.pan+'.docx';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    toast('Word document downloaded!')
+  }).catch(err=>alert('Error: '+err.message))
+}
+function dlDocxPdf(){dlDoc(getValsPdf())}
+function dlDocxManual(){dlDoc(getValsManual())}
+(function(){
+  var t=new Date().toISOString().split('T')[0];g('vdate').value=t;g('m_date').value=t;
+  g('vay').innerHTML=buildAYOptions();g('m_ay').innerHTML=buildAYOptions(); // single source of truth: AY_TABLE
+  var bdg=g('yearRangeBdg');if(bdg)bdg.textContent='Multi-Year: AY '+AY_LIST[AY_LIST.length-1]+' – '+AY_LIST[0];
+  toggleDed('pdf');toggleDed('manual');
+})();
+</script>
+</body>
+</html>
