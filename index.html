@@ -400,6 +400,186 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50%       { opacity: 0.5; transform: scale(0.7); }
     }
+    /* ── BRAND MARK ── */
+    .brand-mark {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 30px;
+      opacity: 0;
+      animation: markIn 1s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+    }
+ 
+    .brand-mark::before {
+      /* soft golden halo */
+      content: '';
+      position: absolute;
+      inset: -26px;
+      background: radial-gradient(circle, rgba(201,168,76,0.28) 0%, transparent 65%);
+      filter: blur(8px);
+      animation: halo 5s ease-in-out infinite;
+    }
+ 
+    .brand-mark svg {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+ 
+    .bm-ring   { transform-origin: 48px 48px; animation: spin 14s linear infinite; }
+    .bm-orbit  { transform-origin: 48px 48px; animation: spin 7s linear infinite; }
+    .bm-spark  { transform-origin: 74px 22px; animation: twinkle 3.2s ease-in-out infinite; }
+ 
+    /* gem outline draws itself, bars rise, coin drops in */
+    .bm-hex {
+      stroke-dasharray: 190;
+      stroke-dashoffset: 190;
+      animation: draw 1.4s ease 0.4s forwards;
+    }
+    .bm-facet { opacity: 0; animation: fadeIn 1s ease 1.1s forwards; }
+    .bm-bar {
+      transform-box: fill-box;
+      transform-origin: 50% 100%;
+      transform: scaleY(0);
+      animation: grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .bm-bar.b1 { animation-delay: 0.9s; }
+    .bm-bar.b2 { animation-delay: 1.05s; }
+    .bm-bar.b3 { animation-delay: 1.2s; }
+    .bm-coin {
+      opacity: 0;
+      animation: drop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1.5s forwards;
+    }
+ 
+    .brand-mark:hover .bm-orbit { animation-duration: 2.2s; }
+    .brand-mark:hover .bm-ring  { animation-duration: 5s; }
+ 
+    @keyframes markIn {
+      from { opacity: 0; transform: translateY(-14px) scale(0.85) rotate(-6deg); }
+      to   { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+    }
+    @keyframes draw    { to { stroke-dashoffset: 0; } }
+    @keyframes grow    { to { transform: scaleY(1); } }
+    @keyframes fadeIn  { to { opacity: 1; } }
+    @keyframes drop    { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes halo    { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.25; transform: scale(0.6) rotate(0deg); }
+      50%      { opacity: 1;    transform: scale(1.15) rotate(45deg); }
+    }
+ 
+    @media (prefers-reduced-motion: reduce) {
+      .bm-ring, .bm-orbit, .bm-spark, .brand-mark::before { animation: none; }
+      .bm-hex   { animation: none; stroke-dashoffset: 0; }
+      .bm-facet, .bm-coin { animation: none; opacity: 1; }
+      .bm-bar   { animation: none; transform: scaleY(1); }
+    }
+ 
+ 
+    /* ── HOME ORB ── */
+    .home-orb {
+      position: fixed;
+      bottom: 32px;
+      left: 32px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      height: 52px;
+      border-radius: 26px;
+      background: rgba(20,23,24,0.72);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      border: 1px solid var(--border);
+      text-decoration: none;
+      overflow: hidden;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 1.2s forwards;
+      transition: border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    }
+ 
+    .home-orb::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 26px;
+      padding: 1px;
+      background: conic-gradient(from 0deg, var(--gold), transparent 30%, transparent 70%, var(--gold));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      animation: spin 4s linear infinite;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+ 
+    .home-orb:hover::before { opacity: 1; }
+ 
+    .home-orb:hover {
+      border-color: var(--gold-dim);
+      background: rgba(25,28,29,0.85);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 24px var(--gold-glow);
+    }
+ 
+    .home-orb-icon {
+      flex: 0 0 52px;
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+ 
+    .home-orb-icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--gold);
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+ 
+    .home-orb:hover .home-orb-icon svg {
+      transform: translateY(-1px) scale(1.08);
+    }
+ 
+    .home-orb-label {
+      max-width: 0;
+      opacity: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--cream);
+      transition: max-width 0.45s ease, opacity 0.3s ease 0.05s, padding 0.45s ease;
+    }
+ 
+    .home-orb:hover .home-orb-label {
+      max-width: 140px;
+      opacity: 1;
+      padding-right: 22px;
+    }
+ 
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+ 
+    @media (max-width: 600px) {
+      .home-orb {
+        bottom: 20px;
+        left: 20px;
+        height: 46px;
+      }
+      .home-orb-icon { flex-basis: 46px; width: 46px; height: 46px; }
+      .home-orb-icon svg { width: 17px; height: 17px; }
+    }
 
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
