@@ -34,6 +34,109 @@ button.p{background:var(--acc);color:var(--accfg)}button.x{border-color:var(--li
 pre{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:12px;overflow:auto;max-height:300px;font-size:12.5px}
 .dup{background:rgba(220,170,30,.28)!important;outline:2px solid #c9a227}.bad{background:rgba(214,90,40,.22)!important;outline:2px solid var(--warn)}details.sec{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin:16px 0}details.sec>summary{cursor:pointer;font-weight:600;font-size:17px}details.sec[open]>summary{margin-bottom:6px}
 .hint{font-size:13px;color:var(--mut);margin-top:6px}.ds{max-width:210px;min-width:140px;color:var(--mut);font-size:12px}
+ /* ── HOME ORB (uses the same --gold / --border / --cream tokens
+     as index.html — make sure those CSS variables exist on this
+     page too, or swap in literal color values) ── */
+  .home-orb {
+    position: fixed;
+    bottom: 32px;
+    left: 32px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    height: 52px;
+    border-radius: 26px;
+    background: rgba(20,23,24,0.72);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--border, #2a2e30);
+    text-decoration: none;
+    overflow: hidden;
+    transition: border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  }
+ 
+  .home-orb::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 26px;
+    padding: 1px;
+    background: conic-gradient(from 0deg, var(--gold, #c9a84c), transparent 30%, transparent 70%, var(--gold, #c9a84c));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    animation: home-orb-spin 4s linear infinite;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+  }
+ 
+  .home-orb:hover::before { opacity: 1; }
+ 
+  .home-orb:hover {
+    border-color: var(--gold-dim, #8a6e2f);
+    background: rgba(25,28,29,0.85);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 24px rgba(201,168,76,0.18);
+  }
+ 
+  .home-orb-icon {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+ 
+  .home-orb-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--gold, #c9a84c);
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+ 
+  .home-orb:hover .home-orb-icon svg {
+    transform: translateY(-1px) scale(1.08);
+  }
+ 
+  .home-orb-label {
+    max-width: 0;
+    opacity: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--cream, #f0e6cc);
+    transition: max-width 0.45s ease, opacity 0.3s ease 0.05s, padding 0.45s ease;
+  }
+ 
+  .home-orb:hover .home-orb-label {
+    max-width: 140px;
+    opacity: 1;
+    padding-right: 22px;
+  }
+ 
+  @keyframes home-orb-spin {
+    to { transform: rotate(360deg); }
+  }
+ 
+  @media (max-width: 600px) {
+    .home-orb {
+      bottom: 20px;
+      left: 20px;
+      height: 46px;
+    }
+    .home-orb-icon { flex-basis: 46px; width: 46px; height: 46px; }
+    .home-orb-icon svg { width: 17px; height: 17px; }
+  }
 </style></head><body><main>
 <h1>GSTR-1 JSON editor and generator</h1>
 <p class="s">Load a GSTR-1 JSON exported from your billing software, correct HSN codes or any other figure, and download the updated file. You can also start from empty tables. Everything runs in your browser.</p>
