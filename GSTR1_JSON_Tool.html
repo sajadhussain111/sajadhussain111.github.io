@@ -2,6 +2,9 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GSTR-1 JSON editor and generator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f3d98b'/%3E%3Cstop offset='.5' stop-color='%23c9a84c'/%3E%3Cstop offset='1' stop-color='%238a6e2f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='2' y='2' width='60' height='60' rx='18' fill='%230d0f0f'/%3E%3Crect x='2.75' y='2.75' width='58.5' height='58.5' rx='17.25' fill='none' stroke='url(%23g)' stroke-width='1.5'/%3E%3Cpolygon points='32,10 51,21 51,43 32,54 13,43 13,21' fill='%23c9a84c' fill-opacity='.08' stroke='url(%23g)' stroke-width='2.6' stroke-linejoin='round'/%3E%3Crect x='21' y='36' width='5' height='8' rx='1.6' fill='url(%23g)'/%3E%3Crect x='29.5' y='29' width='5' height='15' rx='1.6' fill='url(%23g)'/%3E%3Crect x='38' y='22' width='5' height='22' rx='1.6' fill='url(%23g)'/%3E%3Ccircle cx='23.5' cy='28' r='3.1' fill='none' stroke='%23f3d98b' stroke-width='1.6'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230d0f0f'/%3E%3Cpolygon points='32,10 51,21 51,43 32,54 13,43 13,21' fill='none' stroke='%23c9a84c' stroke-width='2.6' stroke-linejoin='round'/%3E%3Crect x='21' y='36' width='5' height='8' rx='1.6' fill='%23c9a84c'/%3E%3Crect x='29.5' y='29' width='5' height='15' rx='1.6' fill='%23c9a84c'/%3E%3Crect x='38' y='22' width='5' height='22' rx='1.6' fill='%23c9a84c'/%3E%3Ccircle cx='23.5' cy='28' r='3.1' fill='none' stroke='%23f3d98b' stroke-width='1.6'/%3E%3C/svg%3E" />
+<meta name="theme-color" content="#0d0f0f" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&display=swap">
 <style>
 :root{--bg:#f6f5f0;--card:#fff;--ink:#1d2a2a;--mut:#64716f;--line:#d9d8cf;--acc:#0f5c55;--accfg:#fff;--warn:#a4440f;--ok:#1b6b3a;--hl:#e3f1ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -298,4 +301,11 @@ const w=st.length,pre=$("ap").value,suf=$("asu").value;const dfv=pre+st+suf,dtv=
 const tv=r2([...B.values()].reduce((a,b)=>a+b.tv,0)),tx=r2([...B.values()].reduce((a,b)=>a+b.i+2*b.c,0));
 $("ag").innerHTML=`<div class="o">Draft created: ${B.size} B2C lines, ${H.size} HSN lines, taxable value ${tv.toFixed(2)}, GST ${tx.toFixed(2)}, invoices ${dfv} to ${dtv}.</div>`+[...new Set(notes)].map(n=>`<div class="e">• ${esc(n)}</div>`).join("")+'<div class="m">Quantities are estimated from the average prices. Edit any line in sections 3 and 5, then review the checks below.</div>';build()};
 search();
-</script></body></html>
+</script>
+   <a href="index.html" class="home-orb" aria-label="Back to home">
+  <span class="home-orb-icon">
+    <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1v-9" /></svg>
+  </span>
+  <span class="home-orb-label">Home</span>
+ </a>
+</body></html>
